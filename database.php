@@ -5,8 +5,8 @@ header("Content-Type: text/plain; charset=utf-8");
 $serverName = "localhost"; 
 $connectionOptions = [
     "Database" => "SMARTEDU",
-    "Uid" => "",          // tu usuario
-    "PWD" => "",          // tu contraseña
+    "Uid" => "",          
+    "PWD" => "",          
     "CharacterSet" => "UTF-8"
 ];
 
@@ -33,7 +33,7 @@ function generar_uuid() {
 
 $session_id = generar_uuid();
 
-// 🔹 Preparar el INSERT incluyendo session_id
+
 $sql = "INSERT INTO horarios (NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon, session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
