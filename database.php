@@ -9,7 +9,7 @@ $connectionOptions = [
     "PWD" => "",
     "CharacterSet" => "UTF-8"
 ];
-
+// probando 
 
 // Conexión
 $conn = sqlsrv_connect($serverName, $connectionOptions);
