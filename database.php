@@ -1,36 +1,44 @@
 <?php
 header("Content-Type: text/plain; charset=utf-8");
 
-//como se conecta a ka bd
+// Conexión a SQL Server
 $serverName = "localhost"; 
 $connectionOptions = [
     "Database" => "SMARTEDU",
-    "Uid" => "",
-    "PWD" => "",
+    "Uid" => "",          // tu usuario
+    "PWD" => "",          // tu contraseña
     "CharacterSet" => "UTF-8"
 ];
-// probando 
 
-// Conexión
 $conn = sqlsrv_connect($serverName, $connectionOptions);
-
 if ($conn === false) {
     die(print_r(sqlsrv_errors(), true));
 }
 
-$input = file_get_contents("php://input");    // el json q le llega de la extraccion desde el index 
+// Leer los datos enviados desde index.html
+$input = file_get_contents("php://input");
 $data = json_decode($input, true);
 
 if (!$data || !isset($data["horarios"])) {
     die("Datos inválidos recibidos.");
 }
-//inserta todos los datos extraidos 
-$sql = "INSERT INTO horarios (NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon)  
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)"; 
-$stmt = sqlsrv_prepare($conn, $sql);
-//inializa la insercion 
+
+// 🔹 Generar un session_id tipo UUID para esta carga completa
+function generar_uuid() {
+    $data = random_bytes(16);
+    $data[6] = chr(ord($data[6]) & 0x0f | 0x40); // version 4
+    $data[8] = chr(ord($data[8]) & 0x3f | 0x80); // variante RFC 4122
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
+
+$session_id = generar_uuid();
+
+// 🔹 Preparar el INSERT incluyendo session_id
+$sql = "INSERT INTO horarios (NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon, session_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
 $insertados = 0;
-//recorre todos los datos y para cada h se crea un arreglo nuevvo oparams si se devuelve algo se inrementa++    
+
 foreach ($data["horarios"] as $h) {
     $params = [
         $h["NRC"],
@@ -40,7 +48,8 @@ foreach ($data["horarios"] as $h) {
         $h["Días"],
         $h["Hora"],
         $h["Profesor"],
-        $h["Salón"]
+        $h["Salón"],
+        $session_id
     ];
     $stmt = sqlsrv_query($conn, $sql, $params);
     if ($stmt) $insertados++;
@@ -48,5 +57,6 @@ foreach ($data["horarios"] as $h) {
 
 sqlsrv_close($conn);
 
-echo "Se guardaron {$insertados} horarios correctamente en la base de datos.";
+echo " Se guardaron {$insertados} horarios correctamente.\n";
+echo "Session ID: {$session_id}";
 ?>
