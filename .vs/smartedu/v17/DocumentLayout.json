@@ -22,14 +22,18 @@
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "SMAREDU2.sql - localhost.SMARTEDU (JOSEM\\Salda (66))",
+              "Title": "SMAREDU2.sql - no conectado",
               "DocumentMoniker": "C:\\Users\\Salda\\Documents\\SQL Server Management Studio 21\\SMAREDU2.sql",
               "RelativeDocumentMoniker": "..\\..\\..\\Documents\\SQL Server Management Studio 21\\SMAREDU2.sql",
-              "ToolTip": "C:\\Users\\Salda\\Documents\\SQL Server Management Studio 21\\SMAREDU2.sql - localhost.SMARTEDU (JOSEM\\Salda (66))",
-              "RelativeToolTip": "..\\..\\..\\Documents\\SQL Server Management Studio 21\\SMAREDU2.sql - localhost.SMARTEDU (JOSEM\\Salda (66))",
+              "ToolTip": "C:\\Users\\Salda\\Documents\\SQL Server Management Studio 21\\SMAREDU2.sql - no conectado",
+              "RelativeToolTip": "..\\..\\..\\Documents\\SQL Server Management Studio 21\\SMAREDU2.sql - no conectado",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000826|",
-              "WhenOpened": "2025-10-22T17:48:16.286Z",
-              "EditorCaption": " - localhost.SMARTEDU (JOSEM\\Salda (66))"
+              "WhenOpened": "2025-10-22T18:00:07.65Z",
+              "EditorCaption": " - no conectado"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
             }
           ]
         }
