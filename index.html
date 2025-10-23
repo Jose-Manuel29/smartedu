@@ -8,41 +8,43 @@
 <body>
   <h2>Subir PDF</h2>
   <input type="file" id="pdfInput" accept="application/pdf">
-  <button id="guardar">GUARDAR </button>
+  <button id="guardar">GUARDAR</button>
 
- <script>
+<script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
 
-document.getElementById('guardar').addEventListener('click', async () => {   // Manejar clic en el botón "GUARDAR"
-  const file = document.getElementById('pdfInput').files[0];  // Obtener el archivo PDF seleccionado
+// Función para generar UUID
+function generarUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+document.getElementById('guardar').addEventListener('click', async () => {
+  const file = document.getElementById('pdfInput').files[0];
   if (!file) {
     alert('Selecciona un PDF primero.');
-    return; 
+    return;
   }
 
   try {
-    const arrayBuffer = await file.arrayBuffer(); // Lee el archivo como ArrayBuffer lo q esdpera pdf.js
-    const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise; // Cargar el PDF
-    let textoCompleto = ''; 
+    const arrayBuffer = await file.arrayBuffer();
+    const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+    let textoCompleto = '';
 
-    // Extra  texto de todas las páginas
     for (let i = 1; i <= pdfDoc.numPages; i++) {
       const page = await pdfDoc.getPage(i);
       const content = await page.getTextContent();
-      const strings = content.items.map(item => item.str.trim()).filter(s => s.length > 0); // Filtra cadenas vacías
+      const strings = content.items.map(item => item.str.trim()).filter(s => s.length > 0);
       textoCompleto += strings.join(' ') + ' ';
     }
 
-    console.log("Texto extraído:", textoCompleto.slice(0, 800)); 
-//la primer linea q detecta en este caso NRC las filtra y gorda por nrc 
     const bloques = textoCompleto.split(/(?=\d{5}\s[A-Z]{4,})/g).map(b => b.trim()).filter(b => b.length > 0);
-    console.log("Bloques detectados:", bloques.length);
-
     const horarios = [];
 
-    // extrae tomando de referencia el nrc todos los demas datos 
     const regex = /(\d{5})\s+([A-Z]{4,})\s+(\d{3})\s+([A-Za-zÁÉÍÓÚÜÑ.\s]+?)\s+(OO\d|[A-Z]{2}\d?)\s+([A-Z])\s+(\d{4})\s*-\s*(\d{4})\s+([A-ZÁÉÍÓÚÜÑ.\-\s]+?)\s+(\w+\/\d+)/;
-//por cada extraccion hace un bloque 
+
     for (const bloque of bloques) {
       const match = bloque.match(regex);
       if (match) {
@@ -59,17 +61,18 @@ document.getElementById('guardar').addEventListener('click', async () => {   // 
       }
     }
 
-    console.log("Horarios detectados:", horarios);
-
     if (horarios.length === 0) {
       alert("No se detectaron registros válidos.");
       return;
     }
-//coneccion con el php para guardar en la base de datos
+
+    const session_id = generarUUID();
+    console.log("Session ID generado:", session_id);
+
     const response = await fetch('database.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ horarios })
+      body: JSON.stringify({ horarios, session_id })
     });
 
     const result = await response.text();
@@ -78,10 +81,9 @@ document.getElementById('guardar').addEventListener('click', async () => {   // 
 
   } catch (error) {
     console.error("Error al procesar:", error);
-    alert("Error al  guardar los datos.");
+    alert("Error al guardar los datos.");
   }
 });
 </script>
-
 </body>
 </html>
