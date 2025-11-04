@@ -26,21 +26,6 @@
             </select>
         </div>
 
-        <!-- Sección -->
-        <div class="mb-3">
-            <label class="form-label">Sección</label>
-            <select class="form-select" name="secc">
-                <option value="">-- Selecciona una sección --</option>
-                <?php
-                $query = "SELECT DISTINCT secc FROM Horario ORDER BY secc";
-                $result = sqlsrv_query($conn, $query);
-                while ($row = sqlsrv_fetch_array($result, SQLSRV_FETCH_ASSOC)) {
-                    echo '<option value="'.$row['secc'].'">'.$row['secc'].'</option>';
-                }
-                ?>
-            </select>
-        </div>
-
         <!-- Materia -->
         <div class="mb-3">
             <label class="form-label">Materia</label>
@@ -66,21 +51,6 @@
                 $result = sqlsrv_query($conn, $query);
                 while ($row = sqlsrv_fetch_array($result, SQLSRV_FETCH_ASSOC)) {
                     echo '<option value="'.$row['id'].'">'.htmlspecialchars($row['nombre']).'</option>';
-                }
-                ?>
-            </select>
-        </div>
-
-        <!-- Días -->
-        <div class="mb-3">
-            <label class="form-label">Días</label>
-            <select class="form-select" name="dias">
-                <option value="">-- Selecciona días --</option>
-                <?php
-                $query = "SELECT DISTINCT dias FROM Horario ORDER BY dias";
-                $result = sqlsrv_query($conn, $query);
-                while ($row = sqlsrv_fetch_array($result, SQLSRV_FETCH_ASSOC)) {
-                    echo '<option value="'.$row['dias'].'">'.$row['dias'].'</option>';
                 }
                 ?>
             </select>
