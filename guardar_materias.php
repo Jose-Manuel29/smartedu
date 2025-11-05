@@ -15,7 +15,7 @@ for ($i = 1; $i <= $numMaterias; $i++) {
         $nrc = $_POST["materia_$i"];
 
         $sql = "INSERT INTO SeleccionMateria (NRC) VALUES (?)";
-        $params = array($session_id, $nrc);
+        $params = array( $nrc);
 
         $stmt = sqlsrv_query($conn, $sql, $params);
 
