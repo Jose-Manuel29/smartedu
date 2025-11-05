@@ -7,14 +7,14 @@ if (!isset($_POST['numMaterias']) || empty($_POST['numMaterias'])) {
 }
 
 $numMaterias = intval($_POST['numMaterias']);
-$session_id = uniqid(); // Identificador único de selección
+//$session_id = uniqid(); // Identificador único de selección
 
 // Insertar cada NRC seleccionado
 for ($i = 1; $i <= $numMaterias; $i++) {
     if (!empty($_POST["materia_$i"])) {
         $nrc = $_POST["materia_$i"];
 
-        $sql = "INSERT INTO SeleccionMateria (session_id, NRC) VALUES (?, ?)";
+        $sql = "INSERT INTO SeleccionMateria (NRC) VALUES (?)";
         $params = array($session_id, $nrc);
 
         $stmt = sqlsrv_query($conn, $sql, $params);
