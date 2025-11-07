@@ -22,7 +22,7 @@ function fetchHorariosPorMaterias(PDO $pdo, array $materias): array {
     error_log("Parámetros: " . json_encode($materias));
 
     try {
-        // USAR PDO CORRECTAMENTE (no sqlsrv_*)
+        // USAR PDO 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($materias);
 

@@ -75,8 +75,8 @@ function parsearHorario(array $row): array {
     // Separar días (pueden venir como "L,W,V" o "L, W, V")
     $arrayDias = array_map('trim', explode(',', $dias));
 
-    // Separar hora inicio y fin (formato: "07:00-09:00")
-    $partes = explode('-', $hora);
+    // Separar hora inicio y fin (ejemplos: "07:00-09:00", "7:00 - 9:00" o "1200-1259")
+    $partes = preg_split('/\s*-\s*/', $hora);
     if (count($partes) !== 2) {
         error_log("⚠️ Formato de hora inválido: '{$hora}' en NRC={$row['NRC']}");
         return [];
@@ -85,19 +85,46 @@ function parsearHorario(array $row): array {
     $inicio = trim($partes[0]);
     $fin = trim($partes[1]);
 
-    // Validar formato de hora (HH:MM)
-    if (!preg_match('/^\d{2}:\d{2}$/', $inicio) || !preg_match('/^\d{2}:\d{2}$/', $fin)) {
-        error_log("⚠️ Formato de hora inválido: '{$hora}' en NRC={$row['NRC']}");
+    // Normalizar formatos de hora sin dos puntos (ej. 1200 -> 12:00, 700 -> 7:00)
+    $normalize = function(string $t) {
+        $t = trim($t);
+        // Si ya tiene :, devolver tal cual
+        if (strpos($t, ':') !== false) return $t;
+        // Sólo dígitos (3 o 4): insertar ':' antes de los dos últimos dígitos
+        if (preg_match('/^\d{3,4}$/', $t)) {
+            $len = strlen($t);
+            $hours = substr($t, 0, $len - 2);
+            $mins = substr($t, -2);
+            return intval($hours) . ':' . str_pad($mins, 2, '0', STR_PAD_LEFT);
+        }
+        // Fall-back: devolver original (será validado más adelante)
+        return $t;
+    };
+
+    $inicio = $normalize($inicio);
+    $fin = $normalize($fin);
+
+    // Aceptar formatos H:MM o HH:MM
+    if (!preg_match('/^\d{1,2}:\d{2}$/', $inicio) || !preg_match('/^\d{1,2}:\d{2}$/', $fin)) {
+        error_log("⚠️ Formato de hora inválido (esperado H:MM/HH:MM o HMM/HHMM): '{$hora}' en NRC={$row['NRC']}");
         return [];
     }
 
+    // Normalizar a minutos desde medianoche para comparaciones fiables
+    list($h1, $m1) = explode(':', $inicio);
+    list($h2, $m2) = explode(':', $fin);
+    $inicio_min = intval($h1) * 60 + intval($m1);
+    $fin_min = intval($h2) * 60 + intval($m2);
+
     // Crear un registro por cada día
     foreach ($arrayDias as $dia) {
-        $dia = strtoupper($dia); // Normalizar a mayúsculas
+        $dia = strtoupper(trim($dia)); // Normalizar a mayúsculas y quitar espacios
         $registros[] = [
             'dia' => $dia,
-            'inicio' => $inicio,
-            'fin' => $fin
+            'inicio' => str_pad($h1, 2, '0', STR_PAD_LEFT) . ':' . str_pad($m1, 2, '0', STR_PAD_LEFT),
+            'fin' => str_pad($h2, 2, '0', STR_PAD_LEFT) . ':' . str_pad($m2, 2, '0', STR_PAD_LEFT),
+            'inicio_min' => $inicio_min,
+            'fin_min' => $fin_min
         ];
     }
 
@@ -106,6 +133,13 @@ function parsearHorario(array $row): array {
 
 function registrosSeTraslapan(array $a, array $b): bool {
     if ($a['dia'] !== $b['dia']) return false;
+
+    // Preferir comparar minutos si están disponibles
+    if (isset($a['inicio_min']) && isset($a['fin_min']) && isset($b['inicio_min']) && isset($b['fin_min'])) {
+        return ($a['inicio_min'] < $b['fin_min']) && ($b['inicio_min'] < $a['fin_min']);
+    }
+
+    // Fallback: comparar strings HH:MM lexicográficamente (válido si están en formato 00:00)
     return ($a['inicio'] < $b['fin']) && ($b['inicio'] < $a['fin']);
 }
 
