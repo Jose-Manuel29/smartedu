@@ -25,7 +25,6 @@ if (!$data || !isset($data["horarios"]) || !isset($data["session_id"])) {
 $session_id = $data["session_id"];
 
 
-
 $sql_insert = "INSERT INTO horarios (NRC, Clave, Materia, Secc, Dias, Hora, Profesor, Salon, session_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -34,6 +33,12 @@ $insertados = 0;
 sqlsrv_begin_transaction($conn);
 
 try {
+    
+    // ➡️ NUEVA LÍNEA: 1. Vaciar la tabla temporal 'horarios' para la nueva carga
+    $sql_clear = "TRUNCATE TABLE horarios";
+    sqlsrv_query($conn, $sql_clear); 
+    // ➡️ NUEVA LÍNEA: Esto asegura que la tabla esté limpia antes de insertar
+    
     foreach ($data["horarios"] as $h) {
         $params = [
             $h["NRC"],
@@ -54,7 +59,7 @@ try {
          throw new Exception("Error al insertar algunos registros.");
     }
     
-    // 2. NORMALIZACIÓN DE DATOS (Tomado de SMAREDU2.sql)
+    // 2. NORMALIZACIÓN DE DATOS (El resto del código se mantiene igual, ya que normaliza a partir de la tabla 'horarios' recién llenada)
     
     // a. Insertar materias únicas
     $sql_materia = "
