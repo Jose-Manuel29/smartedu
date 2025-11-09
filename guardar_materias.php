@@ -46,7 +46,7 @@ if (empty($materias_nombres)) {
 // mediante un POST automático a `public/test_horarios.php` para que la UI
 // muestre las combinaciones directamente en el navegador.
 
-$target = '/proyecto_ing/public/test_horarios.php';
+$target = '/PROYECTO_ISII/public/test_horarios.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">

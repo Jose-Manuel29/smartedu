@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Enviar datos al controlador
     // Ajustado: el proyecto está en c:\xampp\htdocs\proyecto_ing, por lo que la ruta pública correcta
     // no contiene la carpeta "smartedu". Usamos la URL absoluta a /proyecto_ing/private/...
-    $url = 'http://localhost/proyecto_ing/private/controllers/generar_horarios.php';
+    $url = 'http://localhost/PROYECTO_ISII/private/controllers/generar_horarios.php';
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
