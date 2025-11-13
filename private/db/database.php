@@ -7,8 +7,6 @@ $connectionOptions = [
     "Database" => "SMARTEDU",
     "Uid" => "",          
     "PWD" => "",          
-    "Uid" => "",          
-    "PWD" => "",          
     "CharacterSet" => "UTF-8"
 ];
 
@@ -21,7 +19,7 @@ if ($conn === false) {
 $input = file_get_contents("php://input");
 $data = json_decode($input, true);
 
-if (!$data || !isset($data["horarios"]) || !isset($data["session_id"])) {
+if (!$data || !isset($data["horarios"])) {
     die("Datos inválidos recibidos.");
 }
 
