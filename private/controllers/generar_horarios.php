@@ -235,18 +235,18 @@ if (!empty($profesor_excluir)) {
     $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
 }
 
-// 3. Filtrar/ordenar por profesor de prioridad (OR logic: keep combos with ANY prioritized professor)
+// 3. Filtrar/ordenar por profesor de prioridad (AND logic: keep combos with ALL prioritized professors)
 if (!empty($profesor_prioridad)) {
-    // Primero filtrar estrictamente: dejar solo combinaciones que contengan AL MENOS UN profesor de la lista
+    // Filtrar estrictamente: dejar solo combinaciones que contengan TODOS los profesores de la lista
     $combinacionesValidas = array_filter($combinacionesValidas, function($comb) use ($profesor_prioridad) {
         $profesores = isset($comb['profesores']) ? $comb['profesores'] : [];
-        // Retornar true si AL MENOS UN profesor de prioridad está en la combinación
+        // Retornar true si TODOS los profesores de prioridad están en la combinación
         foreach ($profesor_prioridad as $p) {
-            if (in_array($p, $profesores)) {
-                return true; // Mantener esta combinación
+            if (!in_array($p, $profesores)) {
+                return false; // Excluir si falta algún profesor
             }
         }
-        return false; // Excluir esta combinación
+        return true; // Mantener esta combinación (tiene TODOS)
     });
     $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
 

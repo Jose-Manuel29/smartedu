@@ -80,7 +80,7 @@
                     <!-- Filtrar por Profesor -->
                     <div class="mb-4">
                         <label class="form-label">Filtrar por Profesor(es):</label>
-                        <small class="d-block text-muted mb-2">Solo se mostrarán horarios con al menos UNO de estos profesores</small>
+                        <small class="d-block text-muted mb-2">Solo se mostrarán horarios con TODOS estos profesores</small>
                         <div class="input-group mb-2">
                             <button class="btn btn-outline-primary" type="button" id="btnAgregarProfPrioridad">
                                 <strong>+</strong> Agregar
