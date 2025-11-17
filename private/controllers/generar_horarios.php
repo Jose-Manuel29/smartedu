@@ -58,6 +58,47 @@ if (!is_array($rawMaterias) || count($rawMaterias) < 2 || count($rawMaterias) > 
 
 $materiasSeleccionadas = array_filter(array_map('trim', $rawMaterias));
 
+// ===== ACCIÓN ESPECIAL: get_profesores_por_materia =====
+// Retorna profesores agrupados por materia
+if ($action === 'get_profesores_por_materia') {
+    $rows = fetchHorariosPorMaterias($pdo, $materiasSeleccionadas);
+    if (empty($rows)) {
+        http_response_code(404);
+        echo json_encode(['status' => 'error', 'msg' => 'No se encontraron horarios para esas materias']);
+        exit;
+    }
+
+    // Agrupar profesores por materia
+    $profesoresPorMateria = [];
+    foreach ($rows as $row) {
+        $materia = trim($row['Materia']);
+        $profesor = trim($row['Profesor'] ?? '');
+        
+        if (!empty($profesor)) {
+            if (!isset($profesoresPorMateria[$materia])) {
+                $profesoresPorMateria[$materia] = [];
+            }
+            if (!in_array($profesor, $profesoresPorMateria[$materia])) {
+                $profesoresPorMateria[$materia][] = $profesor;
+            }
+        }
+    }
+
+    // Ordenar profesores por materia
+    foreach ($profesoresPorMateria as &$profs) {
+        sort($profs);
+    }
+
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'status' => 'ok',
+        'profesores_por_materia' => $profesoresPorMateria
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+    ob_end_flush();
+    exit;
+}
+
 // ===== ACCIÓN ESPECIAL: get_stats =====
 // Si la acción es 'get_stats', calcular estadísticas sin aplicar filtros
 if ($action === 'get_stats') {
@@ -142,8 +183,33 @@ $combinacionesValidas = generarCombinacionesValidas($pdo, $nrcs_por_materia, $po
 
 // ===== APLICAR FILTROS =====
 $turno_filtro = isset($decoded['turno']) ? $decoded['turno'] : 'todos';
-$profesor_prioridad = isset($decoded['profesor_prioridad']) ? trim($decoded['profesor_prioridad']) : null;
-$profesor_excluir = isset($decoded['profesor_excluir']) ? trim($decoded['profesor_excluir']) : null;
+
+// Procesar profesor_prioridad: puede ser string o array
+$profesor_prioridad = [];
+if (isset($decoded['profesor_prioridad'])) {
+    if (is_array($decoded['profesor_prioridad'])) {
+        $profesor_prioridad = array_filter(array_map('trim', $decoded['profesor_prioridad']));
+    } elseif (is_string($decoded['profesor_prioridad'])) {
+        $temp = trim($decoded['profesor_prioridad']);
+        if (!empty($temp)) {
+            $profesor_prioridad = [$temp];
+        }
+    }
+}
+
+// Procesar profesor_excluir: puede ser string o array
+$profesor_excluir = [];
+if (isset($decoded['profesor_excluir'])) {
+    if (is_array($decoded['profesor_excluir'])) {
+        $profesor_excluir = array_filter(array_map('trim', $decoded['profesor_excluir']));
+    } elseif (is_string($decoded['profesor_excluir'])) {
+        $temp = trim($decoded['profesor_excluir']);
+        if (!empty($temp)) {
+            $profesor_excluir = [$temp];
+        }
+    }
+}
+
 $ordenamiento = isset($decoded['ordenamiento']) ? $decoded['ordenamiento'] : 'horas_muertas';
 
 // 1. Filtrar por turno
@@ -154,21 +220,33 @@ if ($turno_filtro !== 'todos') {
     $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
 }
 
-// 2. Filtrar por profesor a excluir
+// 2. Filtrar por profesor a excluir (AND logic: remove combos with ANY excluded professor)
 if (!empty($profesor_excluir)) {
     $combinacionesValidas = array_filter($combinacionesValidas, function($comb) use ($profesor_excluir) {
         $profesores = isset($comb['profesores']) ? $comb['profesores'] : [];
-        return !in_array($profesor_excluir, $profesores);
+        // Retornar true si NINGUNO de los profesores a excluir está en la combinación
+        foreach ($profesor_excluir as $p) {
+            if (in_array($p, $profesores)) {
+                return false; // Excluir esta combinación
+            }
+        }
+        return true; // Mantener esta combinación
     });
     $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
 }
 
-// 3. Filtrar/ordenar por profesor de prioridad
+// 3. Filtrar/ordenar por profesor de prioridad (OR logic: keep combos with ANY prioritized professor)
 if (!empty($profesor_prioridad)) {
-    // Primero filtrar estrictamente: dejar solo combinaciones que contengan al profesor seleccionado
+    // Primero filtrar estrictamente: dejar solo combinaciones que contengan AL MENOS UN profesor de la lista
     $combinacionesValidas = array_filter($combinacionesValidas, function($comb) use ($profesor_prioridad) {
         $profesores = isset($comb['profesores']) ? $comb['profesores'] : [];
-        return in_array($profesor_prioridad, $profesores);
+        // Retornar true si AL MENOS UN profesor de prioridad está en la combinación
+        foreach ($profesor_prioridad as $p) {
+            if (in_array($p, $profesores)) {
+                return true; // Mantener esta combinación
+            }
+        }
+        return false; // Excluir esta combinación
     });
     $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
 

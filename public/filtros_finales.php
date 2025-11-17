@@ -76,21 +76,41 @@
                 <!-- SECCIÓN 1: Filtros por Profesor -->
                 <div class="form-section">
                     <h5>Filtros por Profesor</h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label">Filtrar por Profesor:</label>
-                            <select class="form-select" id="profesorPrioridad" name="profesor_prioridad">
-                                <option value="">-- Ninguno --</option>
+                    
+                    <!-- Filtrar por Profesor -->
+                    <div class="mb-4">
+                        <label class="form-label">Filtrar por Profesor(es):</label>
+                        <small class="d-block text-muted mb-2">Solo se mostrarán horarios con al menos UNO de estos profesores</small>
+                        <div class="input-group mb-2">
+                            <button class="btn btn-outline-primary" type="button" id="btnAgregarProfPrioridad">
+                                <strong>+</strong> Agregar
+                            </button>
+                            <select class="form-select" id="selectProfPrioridad" style="display:none;">
+                                <option value="">-- Selecciona Profesor --</option>
                             </select>
-                            <small class="text-muted">Solo se mostrarán horarios con este profesor</small>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Excluir Profesor:</label>
-                            <select class="form-select" id="profesorExcluir" name="profesor_excluir">
-                                <option value="">-- Ninguno --</option>
+                        <div id="chipsProfPrioridad" class="d-flex flex-wrap gap-2 mb-2">
+                            <!-- Se llenarán dinámicamente con chips -->
+                        </div>
+                        <input type="hidden" id="profesorPrioridad" name="profesor_prioridad" value="">
+                    </div>
+
+                    <!-- Excluir Profesor -->
+                    <div class="mb-3">
+                        <label class="form-label">Excluir Profesor(es):</label>
+                        <small class="d-block text-muted mb-2">Las combinaciones con estos profesores serán eliminadas</small>
+                        <div class="input-group mb-2">
+                            <button class="btn btn-outline-danger" type="button" id="btnAgregarProfExcluir">
+                                <strong>+</strong> Agregar
+                            </button>
+                            <select class="form-select" id="selectProfExcluir" style="display:none;">
+                                <option value="">-- Selecciona Profesor --</option>
                             </select>
-                            <small class="text-muted">Las combinaciones con este profesor serán eliminadas</small>
                         </div>
+                        <div id="chipsProfExcluir" class="d-flex flex-wrap gap-2 mb-2">
+                            <!-- Se llenarán dinámicamente con chips -->
+                        </div>
+                        <input type="hidden" id="profesorExcluir" name="profesor_excluir" value="">
                     </div>
                 </div>
 
@@ -165,7 +185,9 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         const API_URL = 'http://localhost/proyecto_ing/private/controllers/generar_horarios.php';
-        let profesoresDisponibles = new Set();
+        let profesoresDisponibles = {};
+        let profesoresPrioridad = [];
+        let profesoresExcluir = [];
         let materiasActuales = [];
 
         // Las materias se reciben por parámetro GET o se pasan directamente
@@ -192,6 +214,56 @@
                 });
                 // Cargar estadísticas después de mostrar materias
                 cargarEstadisticas();
+                // Cargar profesores disponibles
+                cargarProfesoresPorMateria();
+            }
+        }
+
+        // Cargar profesores por materia desde el endpoint
+        async function cargarProfesoresPorMateria() {
+            try {
+                const payload = {
+                    materias: materiasActuales,
+                    action: 'get_profesores_por_materia'
+                };
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'ok' && data.profesores_por_materia) {
+                    profesoresDisponibles = data.profesores_por_materia;
+                    
+                    // Obtener lista única de todos los profesores
+                    const todosLosProfesores = new Set();
+                    Object.values(profesoresDisponibles).forEach(profs => {
+                        profs.forEach(p => todosLosProfesores.add(p));
+                    });
+                    
+                    // Llenar los select con todos los profesores disponibles
+                    const profesoresOrdenados = Array.from(todosLosProfesores).sort();
+                    $('#selectProfPrioridad, #selectProfExcluir').html('<option value="">-- Selecciona Profesor --</option>');
+                    
+                    profesoresOrdenados.forEach(prof => {
+                        const option = `<option value="${prof}">${prof}</option>`;
+                        $('#selectProfPrioridad').append(option);
+                        $('#selectProfExcluir').append(option);
+                    });
+                    
+                    // Actualizar selectores para aplicar lógica de ocultamiento
+                    actualizarSelectProfPrioridad();
+                    actualizarSelectProfExcluir();
+                    
+                    console.log('Profesores por materia cargados:', profesoresDisponibles);
+                } else {
+                    console.warn('No se pudieron cargar profesores:', data);
+                }
+            } catch (error) {
+                console.error('Error cargando profesores por materia:', error);
             }
         }
 
@@ -215,16 +287,6 @@
                     $('#totalCombinaciones').text(data.stats.total_combinaciones || 0);
                     $('#totalProfesores').text(data.stats.total_profesores || 0);
                     
-                    // Llenar los dropdowns de profesores
-                    if (data.stats.profesores && Array.isArray(data.stats.profesores)) {
-                        $('#profesorPrioridad, #profesorExcluir').html('<option value="">-- Ninguno --</option>');
-                        data.stats.profesores.forEach(prof => {
-                            const option = `<option value="${prof}">${prof}</option>`;
-                            $('#profesorPrioridad').append(option);
-                            $('#profesorExcluir').append(option);
-                        });
-                    }
-                    
                     $('#estadisticasCard').show();
                     console.log('Estadísticas cargadas:', data.stats);
                 }
@@ -233,25 +295,185 @@
             }
         }
 
-        // Cargar materias disponibles (para dropdowns de profesores)
-        async function cargarMaterias() {
-            try {
-                const response = await fetch('/proyecto_ing/private/controllers/generar_horarios.php?action=get_materias');
-                if (response.ok) {
-                    const data = await response.json();
-                    const materias = data.materias || [];
-                    $('.materia-select').each(function() {
-                        const selectActual = $(this).val();
-                        $(this).html('<option value="">-- Selecciona Materia --</option>');
-                        materias.forEach(m => {
-                            $(this).append(`<option value="${m}">${m}</option>`);
-                        });
-                        if (selectActual) $(this).val(selectActual);
-                    });
-                }
-            } catch (error) {
-                console.error('Error cargando materias:', error);
+        // Manejar agregación de profesor a la lista de prioridad
+        $('#btnAgregarProfPrioridad').on('click', function() {
+            $('#selectProfPrioridad').toggle();
+            if ($('#selectProfPrioridad').is(':visible')) {
+                $('#selectProfPrioridad').focus();
             }
+        });
+
+        $('#selectProfPrioridad').on('change', function() {
+            const prof = $(this).val();
+            if (prof && !profesoresPrioridad.includes(prof)) {
+                profesoresPrioridad.push(prof);
+                actualizarChipsPrioridad();
+                actualizarInputProfPrioridad();
+                actualizarSelectProfPrioridad(); // Actualizar opciones disponibles
+                $(this).val('').hide();
+            }
+        });
+
+        // Manejar agregación de profesor a la lista de exclusión
+        $('#btnAgregarProfExcluir').on('click', function() {
+            $('#selectProfExcluir').toggle();
+            if ($('#selectProfExcluir').is(':visible')) {
+                $('#selectProfExcluir').focus();
+            }
+        });
+
+        $('#selectProfExcluir').on('change', function() {
+            const prof = $(this).val();
+            if (prof && !profesoresExcluir.includes(prof)) {
+                profesoresExcluir.push(prof);
+                actualizarChipsExcluir();
+                actualizarInputProfExcluir();
+                actualizarSelectProfExcluir(); // Actualizar opciones disponibles
+                $(this).val('').hide();
+            }
+        });
+
+        // Actualizar chips para profesores de prioridad
+        function actualizarChipsPrioridad() {
+            const container = $('#chipsProfPrioridad');
+            container.html('');
+            profesoresPrioridad.forEach(prof => {
+                const chip = `
+                    <span class="badge bg-primary d-inline-flex align-items-center gap-1">
+                        ${prof}
+                        <button type="button" class="btn-close btn-close-white btn-close-sm" 
+                                onclick="removerProfPrioridad('${prof}')" style="cursor: pointer; padding: 0;">
+                        </button>
+                    </span>
+                `;
+                container.append(chip);
+            });
+        }
+
+        // Actualizar chips para profesores de exclusión
+        function actualizarChipsExcluir() {
+            const container = $('#chipsProfExcluir');
+            container.html('');
+            profesoresExcluir.forEach(prof => {
+                const chip = `
+                    <span class="badge bg-danger d-inline-flex align-items-center gap-1">
+                        ${prof}
+                        <button type="button" class="btn-close btn-close-white btn-close-sm" 
+                                onclick="removerProfExcluir('${prof}')" style="cursor: pointer; padding: 0;">
+                        </button>
+                    </span>
+                `;
+                container.append(chip);
+            });
+        }
+
+        // Remover profesor de prioridad
+        function removerProfPrioridad(prof) {
+            profesoresPrioridad = profesoresPrioridad.filter(p => p !== prof);
+            actualizarChipsPrioridad();
+            actualizarInputProfPrioridad();
+            actualizarSelectProfPrioridad(); // Actualizar opciones al remover
+        }
+
+        // Remover profesor de exclusión
+        function removerProfExcluir(prof) {
+            profesoresExcluir = profesoresExcluir.filter(p => p !== prof);
+            actualizarChipsExcluir();
+            actualizarInputProfExcluir();
+            actualizarSelectProfExcluir(); // Actualizar opciones al remover
+        }
+
+        // Actualizar input hidden para profesores de prioridad
+        function actualizarInputProfPrioridad() {
+            const valor = profesoresPrioridad.length > 0 ? JSON.stringify(profesoresPrioridad) : '';
+            $('#profesorPrioridad').val(valor);
+        }
+
+        // Actualizar input hidden para profesores de exclusión
+        function actualizarInputProfExcluir() {
+            const valor = profesoresExcluir.length > 0 ? JSON.stringify(profesoresExcluir) : '';
+            $('#profesorExcluir').val(valor);
+        }
+
+        // Obtener materias enseñadas por un profesor
+        function obtenerMateriasDelProfesor(profesor) {
+            const materias = [];
+            Object.entries(profesoresDisponibles).forEach(([materia, profs]) => {
+                if (profs.includes(profesor)) {
+                    materias.push(materia);
+                }
+            });
+            return materias;
+        }
+
+        // Actualizar opciones disponibles en selectProfPrioridad
+        function actualizarSelectProfPrioridad() {
+            const materiasOcupadas = new Set();
+            
+            // Obtener todas las materias enseñadas por profesores ya seleccionados
+            profesoresPrioridad.forEach(prof => {
+                obtenerMateriasDelProfesor(prof).forEach(mat => {
+                    materiasOcupadas.add(mat);
+                });
+            });
+
+            // Reconstruir opciones del select
+            const selectElement = $('#selectProfPrioridad');
+            selectElement.html('<option value="">-- Selecciona Profesor --</option>');
+
+            // Obtener lista única de todos los profesores
+            const todosLosProfesores = new Set();
+            Object.values(profesoresDisponibles).forEach(profs => {
+                profs.forEach(p => todosLosProfesores.add(p));
+            });
+
+            // Agregar opciones solo si el profesor no está seleccionado ni enseña materias ocupadas
+            Array.from(todosLosProfesores).sort().forEach(prof => {
+                if (!profesoresPrioridad.includes(prof)) {
+                    const materiasDelProf = obtenerMateriasDelProfesor(prof);
+                    const tieneMateriasOcupadas = materiasDelProf.some(mat => materiasOcupadas.has(mat));
+                    
+                    if (!tieneMateriasOcupadas) {
+                        const option = `<option value="${prof}">${prof}</option>`;
+                        selectElement.append(option);
+                    }
+                }
+            });
+        }
+
+        // Actualizar opciones disponibles en selectProfExcluir
+        function actualizarSelectProfExcluir() {
+            const materiasOcupadas = new Set();
+            
+            // Obtener todas las materias enseñadas por profesores ya excluidos
+            profesoresExcluir.forEach(prof => {
+                obtenerMateriasDelProfesor(prof).forEach(mat => {
+                    materiasOcupadas.add(mat);
+                });
+            });
+
+            // Reconstruir opciones del select
+            const selectElement = $('#selectProfExcluir');
+            selectElement.html('<option value="">-- Selecciona Profesor --</option>');
+
+            // Obtener lista única de todos los profesores
+            const todosLosProfesores = new Set();
+            Object.values(profesoresDisponibles).forEach(profs => {
+                profs.forEach(p => todosLosProfesores.add(p));
+            });
+
+            // Agregar opciones solo si el profesor no está excluido ni enseña materias ocupadas
+            Array.from(todosLosProfesores).sort().forEach(prof => {
+                if (!profesoresExcluir.includes(prof)) {
+                    const materiasDelProf = obtenerMateriasDelProfesor(prof);
+                    const tieneMateriasOcupadas = materiasDelProf.some(mat => materiasOcupadas.has(mat));
+                    
+                    if (!tieneMateriasOcupadas) {
+                        const option = `<option value="${prof}">${prof}</option>`;
+                        selectElement.append(option);
+                    }
+                }
+            });
         }
 
         // Aplicar filtros: actualizar el número de combinaciones
@@ -263,16 +485,14 @@
 
             const turno = $('input[name="turno"]:checked').val();
             const ordenamiento = $('#ordenamiento').val();
-            const profesorPrioridad = $('#profesorPrioridad').val();
-            const profesorExcluir = $('#profesorExcluir').val();
 
             try {
                 const payload = {
                     materias: materiasActuales,
                     turno: turno,
                     ordenamiento: ordenamiento,
-                    profesor_prioridad: profesorPrioridad || null,
-                    profesor_excluir: profesorExcluir || null
+                    profesor_prioridad: profesoresPrioridad.length > 0 ? profesoresPrioridad : null,
+                    profesor_excluir: profesoresExcluir.length > 0 ? profesoresExcluir : null
                 };
 
                 const response = await fetch(API_URL, {
@@ -322,8 +542,6 @@
 
             const turno = $('input[name="turno"]:checked').val();
             const ordenamiento = $('#ordenamiento').val();
-            const profesorPrioridad = $('#profesorPrioridad').val();
-            const profesorExcluir = $('#profesorExcluir').val();
 
             $('#resultadosContainer').show();
             $('#loadingSpinner').show();
@@ -334,8 +552,8 @@
                     materias: materiasActuales,
                     turno: turno,
                     ordenamiento: ordenamiento,
-                    profesor_prioridad: profesorPrioridad || null,
-                    profesor_excluir: profesorExcluir || null
+                    profesor_prioridad: profesoresPrioridad.length > 0 ? profesoresPrioridad : null,
+                    profesor_excluir: profesoresExcluir.length > 0 ? profesoresExcluir : null
                 };
 
                 const response = await fetch(API_URL, {
@@ -493,7 +711,6 @@
         // Inicializar
         $(document).ready(function() {
             cargarMateriasDelParametro();
-            cargarMaterias();
         });
     </script>
 </body>
