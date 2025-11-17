@@ -1,4 +1,12 @@
 <?php
+//brian
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Debug: marca que PHP ejecutó (aparecerá en el código fuente como comentario)
+echo "<!-- DEBUG: test_horarios.php cargado -->\n";
+//brian
 // test_horarios.php
 // Este archivo sirve para probar el generador de combinaciones desde el navegador
 // También recibe datos filtrados desde filtros_finales.php
@@ -6,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $materias = $_POST['materias'] ?? [];
 
     // Enviar datos al controlador
-    $url = 'http://localhost/proyecto_ing/private/controllers/generar_horarios.php';
+    $url = 'http://localhost/proyecto_isi/private/controllers/generar_horarios.php';
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -40,6 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
         .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     </style>
+
+    <!-- Agregado: html2pdf (html2canvas + jsPDF BRIAN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <h1>🧩 Prueba de combinaciones válidas</h1>
@@ -72,17 +83,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         function mostrarResultadosDelFiltro(data) {
             const div = document.getElementById('resultadosDiv');
-            
             if (!data || data.status !== 'ok' || !data.combinaciones) {
                 div.innerHTML = '<div class="alert alert-info">No hay datos disponibles.</div>';
                 return;
             }
 
-            let html = `
-                <div class="alert alert-success">
-                    <strong>✅ Se encontraron ${data.total_combinaciones_validas} combinaciones válidas</strong><br>
-                    Materias: ${data.materias_solicitadas.join(', ')}
-                </div>
+            // Botón para exportar todo en un solo PDF BRIAN
+            let html = `<div style="margin-bottom:12px;"><button onclick="exportAllToPDF()" style="padding:8px 12px;">Exportar TODO a PDF</button></div>`;
+
+            html += `
+
                 <div class="alert alert-info">
                     <strong>Filtros aplicados:</strong><br>
                     Turno: ${data.filtros_aplicados?.turno || 'todos'} | 
@@ -91,16 +101,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Ordenamiento: ${data.filtros_aplicados?.ordenamiento || 'horas muertas'}
                 </div>
             `;
-
-            // Mostrar cada combinación como una 'card' con su cuadrícula
+//BRIAN
             data.combinaciones.forEach((comb, i) => {
                 const detalle = comb.detalle_horarios || {};
+                // cada combinación tiene un contenedor con id para exportar
                 html += `
-                    <div style="background: #fff; padding: 12px; border-radius: 6px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-                        <h3>Combinación #${i + 1}</h3>
-                        <p><strong>NRCs incluidos:</strong> ${comb.nrcs_incluidos.join(', ')}</p>
-                        <p><strong>Profesores:</strong> ${(comb.profesores || []).join(', ')}</p>
-                        <p><strong>Turno:</strong> ${comb.turno || 'mixto'} | <strong>Horas muertas:</strong> ${comb.horas_muertas || 0} hrs</p>
+                    <div id="comb-${i}" style="background: #fff; padding: 12px; border-radius: 6px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                          <h3 style="margin:0">Combinación #${i + 1}</h3>
+                          <div>
+                            <button onclick="exportCombinationToPDF(${i})" style="padding:6px 10px;margin-left:8px;">Exportar PDF</button>
+                          </div>
+                        </div>
+                        <p style="margin:6px 0;"><strong>NRCs incluidos:</strong> ${comb.nrcs_incluidos.join(', ')}</p>
+                        <p style="margin:6px 0;"><strong>Profesores:</strong> ${(comb.profesores || []).join(', ')}</p>
+                        <p style="margin:6px 0;"><strong>Turno:</strong> ${comb.turno || 'mixto'} | <strong>Horas muertas:</strong> ${comb.horas_muertas || 0} hrs</p>
                         ${renderTimetable(detalle)}
                     </div>
                 `;
@@ -108,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             div.innerHTML = html;
         }
-
+//BRIAN
         function renderTimetable(detalle) {
             // Convertir si es string
             if (typeof detalle === 'string') {
@@ -242,7 +257,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             html += '</tbody></table>';
             return html;
         }
+//BRIAN
+        /*
+ Reemplaza las funciones de exportación basadas en clonación por estas
+ que simplemente ocultan los botones temporalmente en el DOM original,
+ generan el PDF y luego restauran la visibilidad. Evita problemas de
+ contenido vacío al mantener los estilos y recursos en el mismo nodo.
+*/
 
+function _hideButtonsTemp(container) {
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const backup = buttons.map(b => ({ el: b, display: b.style.display || '' }));
+    buttons.forEach(b => b.style.display = 'none');
+    return backup;
+}
+
+function _restoreButtons(backup) {
+    if (!Array.isArray(backup)) return;
+    backup.forEach(item => {
+        try { item.el.style.display = item.display; } catch (e) { /* ignore */ }
+    });
+}
+
+function exportCombinationToPDF(i) {
+    const el = document.getElementById('comb-' + i);
+    if (!el) return alert('Elemento no encontrado para exportar.');
+    const backup = _hideButtonsTemp(el);
+    const opt = {
+        margin:       0.5,
+        filename:     `horario_${i+1}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, logging: false },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(el).save()
+        .then(() => _restoreButtons(backup))
+        .catch(() => _restoreButtons(backup));
+}
+
+function exportAllToPDF() {
+    const el = document.getElementById('resultadosDiv');
+    if (!el) return alert('No hay contenido para exportar.');
+    const backup = _hideButtonsTemp(el);
+    const opt = {
+        margin:       0.4,
+        filename:     `horarios_todos.pdf`,
+        image:        { type: 'jpeg', quality: 0.95 },
+        html2canvas:  { scale: 2, logging: false },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opt).from(el).save()
+        .then(() => _restoreButtons(backup))
+        .catch(() => _restoreButtons(backup));
+}
+//BRIAN
         // Si hay datos del POST tradicional, mostrarlos también
         <?php if (!empty($data)): ?>
             if (!datosSessionStorage) {
