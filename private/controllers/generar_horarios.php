@@ -18,12 +18,18 @@ require_once __DIR__ . '/../algoritmos/combinador.php';
 // 2) Form POST con array 'materias' (materias[])
 // 3) Form POST con campos individuales materia_1, materia_2, ...
 $rawMaterias = null;
+$action = null;
 
 // 1) JSON body
 $input = file_get_contents('php://input');
 $decoded = json_decode($input, true);
 if (is_array($decoded) && isset($decoded['materias']) && is_array($decoded['materias'])) {
     $rawMaterias = $decoded['materias'];
+}
+
+// Capturar acción especial (ej. get_stats)
+if (is_array($decoded) && isset($decoded['action'])) {
+    $action = $decoded['action'];
 }
 
 // 2) Form array materias[]
@@ -52,6 +58,63 @@ if (!is_array($rawMaterias) || count($rawMaterias) < 2 || count($rawMaterias) > 
 
 $materiasSeleccionadas = array_filter(array_map('trim', $rawMaterias));
 
+// ===== ACCIÓN ESPECIAL: get_stats =====
+// Si la acción es 'get_stats', calcular estadísticas sin aplicar filtros
+if ($action === 'get_stats') {
+    // Consultar horarios
+    $rows = fetchHorariosPorMaterias($pdo, $materiasSeleccionadas);
+    if (empty($rows)) {
+        http_response_code(404);
+        echo json_encode(['status' => 'error', 'msg' => 'No se encontraron horarios para esas materias']);
+        exit;
+    }
+
+    // Agrupar por NRC y materia
+    $grupos = agruparPorNrcYPorMateria($rows);
+    $por_nrc = $grupos['por_nrc'];
+    $nrcs_por_materia = $grupos['nrcs_por_materia'];
+
+    // Verificar que todas tengan grupos disponibles
+    foreach ($materiasSeleccionadas as $m) {
+        if (!isset($nrcs_por_materia[$m]) || empty($nrcs_por_materia[$m])) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'msg' => "No se encontraron NRCs para la materia $m"]);
+            exit;
+        }
+    }
+
+    // Generar combinaciones válidas (sin filtros)
+    $combinacionesValidas = generarCombinacionesValidas($pdo, $nrcs_por_materia, $por_nrc, null);
+
+    // Extraer profesores únicos
+    $profesoresUnicos = [];
+    foreach ($por_nrc as $nrc => $detalle) {
+        if (!empty($detalle['profesor'])) {
+            $prof = trim($detalle['profesor']);
+            if (!in_array($prof, $profesoresUnicos)) {
+                $profesoresUnicos[] = $prof;
+            }
+        }
+    }
+    sort($profesoresUnicos);
+
+    // Enviar estadísticas
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'status' => 'ok',
+        'stats' => [
+            'total_combinaciones' => count($combinacionesValidas),
+            'total_profesores' => count($profesoresUnicos),
+            'profesores' => $profesoresUnicos
+        ]
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+    ob_end_flush();
+    exit;
+}
+
+// ===== FLUJO NORMAL: Generar combinaciones con filtros =====
+
 // Consultar horarios
 $rows = fetchHorariosPorMaterias($pdo, $materiasSeleccionadas);
 if (empty($rows)) {
@@ -77,6 +140,67 @@ foreach ($materiasSeleccionadas as $m) {
 // Generar combinaciones válidas
 $combinacionesValidas = generarCombinacionesValidas($pdo, $nrcs_por_materia, $por_nrc, null);
 
+// ===== APLICAR FILTROS =====
+$turno_filtro = isset($decoded['turno']) ? $decoded['turno'] : 'todos';
+$profesor_prioridad = isset($decoded['profesor_prioridad']) ? trim($decoded['profesor_prioridad']) : null;
+$profesor_excluir = isset($decoded['profesor_excluir']) ? trim($decoded['profesor_excluir']) : null;
+$ordenamiento = isset($decoded['ordenamiento']) ? $decoded['ordenamiento'] : 'horas_muertas';
+
+// 1. Filtrar por turno
+if ($turno_filtro !== 'todos') {
+    $combinacionesValidas = array_filter($combinacionesValidas, function($comb) use ($turno_filtro) {
+        return isset($comb['turno']) && $comb['turno'] === $turno_filtro;
+    });
+    $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
+}
+
+// 2. Filtrar por profesor a excluir
+if (!empty($profesor_excluir)) {
+    $combinacionesValidas = array_filter($combinacionesValidas, function($comb) use ($profesor_excluir) {
+        $profesores = isset($comb['profesores']) ? $comb['profesores'] : [];
+        return !in_array($profesor_excluir, $profesores);
+    });
+    $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
+}
+
+// 3. Filtrar/ordenar por profesor de prioridad
+if (!empty($profesor_prioridad)) {
+    // Primero filtrar estrictamente: dejar solo combinaciones que contengan al profesor seleccionado
+    $combinacionesValidas = array_filter($combinacionesValidas, function($comb) use ($profesor_prioridad) {
+        $profesores = isset($comb['profesores']) ? $comb['profesores'] : [];
+        return in_array($profesor_prioridad, $profesores);
+    });
+    $combinacionesValidas = array_values($combinacionesValidas); // Re-indexar
+
+    // Luego ordenar por horas muertas (mejor dentro del subconjunto)
+    usort($combinacionesValidas, function($a, $b) {
+        $a_horas = isset($a['horas_muertas']) ? $a['horas_muertas'] : 999;
+        $b_horas = isset($b['horas_muertas']) ? $b['horas_muertas'] : 999;
+        return $a_horas <=> $b_horas;
+    });
+}
+
+// 4. Ordenar por preferencia del usuario
+if ($ordenamiento === 'horas_muertas') {
+    usort($combinacionesValidas, function($a, $b) {
+        $a_horas = isset($a['horas_muertas']) ? $a['horas_muertas'] : 999;
+        $b_horas = isset($b['horas_muertas']) ? $b['horas_muertas'] : 999;
+        return $a_horas <=> $b_horas; // Ascendente: menos horas muertas primero
+    });
+} elseif ($ordenamiento === 'hora_inicio') {
+    usort($combinacionesValidas, function($a, $b) {
+        $a_inicio = isset($a['hora_inicio']) ? $a['hora_inicio'] : 999999;
+        $b_inicio = isset($b['hora_inicio']) ? $b['hora_inicio'] : 999999;
+        return $a_inicio <=> $b_inicio; // Ascendente: más temprana primero
+    });
+} elseif ($ordenamiento === 'hora_fin') {
+    usort($combinacionesValidas, function($a, $b) {
+        $a_fin = isset($a['hora_fin']) ? $a['hora_fin'] : 0;
+        $b_fin = isset($b['hora_fin']) ? $b['hora_fin'] : 0;
+        return $a_fin <=> $b_fin; // Ascendente: más temprana primero
+    });
+}
+
 // 7️⃣ Preparar salida
 $resultado = [];
 foreach ($combinacionesValidas as $comb) {
@@ -84,6 +208,9 @@ foreach ($combinacionesValidas as $comb) {
         'materias_incluidas' => explode(',', $comb['materias_incluidas']),
         'nrcs_incluidos' => explode(',', $comb['nrcs_incluidos']),
         'detalle_horarios' => $comb['detalle_horarios'],
+        'turno' => $comb['turno'] ?? 'mixto',
+        'horas_muertas' => $comb['horas_muertas'] ?? 0,
+        'profesores' => $comb['profesores'] ?? [],
     ];
 }
 
@@ -93,6 +220,12 @@ echo json_encode([
     'status' => 'ok',
     'materias_solicitadas' => $materiasSeleccionadas,
     'total_combinaciones_validas' => count($resultado),
+    'filtros_aplicados' => [
+        'turno' => $turno_filtro,
+        'profesor_prioridad' => $profesor_prioridad,
+        'profesor_excluir' => $profesor_excluir,
+        'ordenamiento' => $ordenamiento
+    ],
     'combinaciones' => $resultado
 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 

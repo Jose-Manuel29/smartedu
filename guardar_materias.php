@@ -43,11 +43,10 @@ if (empty($materias_nombres)) {
 }
 
 // En lugar de llamar al generador desde el servidor, redirigimos al usuario
-// mediante un POST automático a `public/test_horarios.php` para que la UI
-// muestre las combinaciones directamente en el navegador.
+// a `public/filtros_finales.php` pasando las materias seleccionadas como parámetro GET.
 
-// Ajustar target a la ruta correcta dentro del proyecto `smartedu`
-$target = 'public/test_horarios.php';
+$target = '/proyecto_ing/public/filtros_finales.php';
+$materias_param = urlencode(implode(',', $materias_nombres));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -56,25 +55,16 @@ $target = 'public/test_horarios.php';
     <title>Redirigiendo…</title>
     <style>body{font-family:Arial;padding:30px;background:#f6f6f6}</style>
     <script>
-        function submitForm(){
-            document.getElementById('forwardForm').submit();
+        function redirect(){
+            window.location.href = '<?= $target ?>?materias=<?= $materias_param ?>';
         }
-        window.addEventListener('DOMContentLoaded', submitForm);
+        window.addEventListener('DOMContentLoaded', redirect);
     </script>
 </head>
 <body>
     <div style="max-width:800px;margin:40px auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.08);">
-        <h3>Redirigiendo al generador…</h3>
-        <p>Si no se redirige automáticamente, pulsa el botón.</p>
-
-        <form id="forwardForm" method="post" action="<?= htmlspecialchars($target) ?>">
-            <?php foreach ($materias_nombres as $m): ?>
-                <input type="hidden" name="materias[]" value="<?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?>">
-            <?php endforeach; ?>
-            <noscript>
-                <button type="submit">Continuar</button>
-            </noscript>
-        </form>
+        <h3>Redirigiendo a filtros avanzados…</h3>
+        <p>Si no se redirige automáticamente, <a href="<?= $target ?>?materias=<?= $materias_param ?>">haz clic aquí</a>.</p>
     </div>
 </body>
 </html>

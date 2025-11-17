@@ -177,6 +177,123 @@ function validarCombinacionDetalle(array $combDetalle): bool {
     return true;
 }
 
+/**
+ * Detecta si una combinación es matutina (07:00-13:00), vespertina (13:00-19:00) o mixta
+ * Retorna 'matutino', 'vespertino' o 'mixto'
+ */
+function detectarTurnoCombinacion(array $detalleCombinacion): string {
+    $horas_inicio = [];
+    $horas_fin = [];
+    
+    foreach ($detalleCombinacion as $nrc => $datos) {
+        if (isset($datos['registros']) && is_array($datos['registros'])) {
+            foreach ($datos['registros'] as $reg) {
+                if (isset($reg['inicio_min'])) {
+                    $horas_inicio[] = $reg['inicio_min'];
+                    $horas_fin[] = $reg['fin_min'];
+                }
+            }
+        }
+    }
+    
+    if (empty($horas_inicio)) return 'mixto';
+    
+    $min_inicio = min($horas_inicio);
+    $max_fin = max($horas_fin);
+    
+    $matutino_inicio = 7 * 60;   // 07:00 = 420 min
+    $matutino_fin = 13 * 60;     // 13:00 = 780 min
+    $vespertino_inicio = 13 * 60; // 13:00 = 780 min
+    $vespertino_fin = 19 * 60;    // 19:00 = 1140 min
+    
+    // Si todo está dentro de matutino
+    if ($min_inicio >= $matutino_inicio && $max_fin <= $matutino_fin) {
+        return 'matutino';
+    }
+    // Si todo está dentro de vespertino
+    if ($min_inicio >= $vespertino_inicio && $max_fin <= $vespertino_fin) {
+        return 'vespertino';
+    }
+    return 'mixto';
+}
+
+/**
+ * Calcula las horas muertas (gap) de una combinación
+ * Retorna la diferencia en horas entre la primera clase y la última
+ */
+function calcularHorasMuertas(array $detalleCombinacion): float {
+    $min_inicio = null;
+    $max_fin = null;
+    
+    foreach ($detalleCombinacion as $nrc => $datos) {
+        if (isset($datos['registros']) && is_array($datos['registros'])) {
+            foreach ($datos['registros'] as $reg) {
+                if (isset($reg['inicio_min'])) {
+                    if ($min_inicio === null || $reg['inicio_min'] < $min_inicio) {
+                        $min_inicio = $reg['inicio_min'];
+                    }
+                    if ($max_fin === null || $reg['fin_min'] > $max_fin) {
+                        $max_fin = $reg['fin_min'];
+                    }
+                }
+            }
+        }
+    }
+    
+    if ($min_inicio === null || $max_fin === null) return 0;
+    return round(($max_fin - $min_inicio) / 60, 2);
+}
+
+/**
+ * Extrae los profesores únicos de una combinación
+ */
+function extraerProfesoresCombinacion(array $detalleCombinacion): array {
+    $profesores = [];
+    foreach ($detalleCombinacion as $nrc => $datos) {
+        if (isset($datos['profesor']) && !empty(trim($datos['profesor']))) {
+            $prof = trim($datos['profesor']);
+            if (!in_array($prof, $profesores)) {
+                $profesores[] = $prof;
+            }
+        }
+    }
+    return $profesores;
+}
+
+/**
+ * Obtiene la hora de inicio más temprana de una combinación
+ */
+function obtenerHoraInicioCombinacion(array $detalleCombinacion): int {
+    $min_inicio = 24 * 60; // 1440 minutos (24 horas)
+    foreach ($detalleCombinacion as $nrc => $datos) {
+        if (isset($datos['registros']) && is_array($datos['registros'])) {
+            foreach ($datos['registros'] as $reg) {
+                if (isset($reg['inicio_min'])) {
+                    $min_inicio = min($min_inicio, $reg['inicio_min']);
+                }
+            }
+        }
+    }
+    return $min_inicio === 24 * 60 ? 0 : $min_inicio;
+}
+
+/**
+ * Obtiene la hora de fin más tardía de una combinación
+ */
+function obtenerHoraFinCombinacion(array $detalleCombinacion): int {
+    $max_fin = 0;
+    foreach ($detalleCombinacion as $nrc => $datos) {
+        if (isset($datos['registros']) && is_array($datos['registros'])) {
+            foreach ($datos['registros'] as $reg) {
+                if (isset($reg['fin_min'])) {
+                    $max_fin = max($max_fin, $reg['fin_min']);
+                }
+            }
+        }
+    }
+    return $max_fin;
+}
+
 function generarCombinacionesValidas(PDO $pdo, array $nrcs_por_materia, array $por_nrc, ?callable $onValid = null): array {
     $materias = array_keys($nrcs_por_materia);
     $numMaterias = count($materias);
@@ -260,6 +377,21 @@ function generarCombinacionesValidas(PDO $pdo, array $nrcs_por_materia, array $p
     $dfs(0);
     
     error_log("✅ Combinaciones válidas generadas: " . count($resultados));
+    
+    // Agregar metadatos útiles a cada resultado
+    foreach ($resultados as &$resultado) {
+        $detalle = $resultado['detalle_horarios'];
+        if (is_string($detalle)) {
+            $detalle = json_decode($detalle, true) ?? [];
+        }
+        if (is_array($detalle)) {
+            $resultado['turno'] = detectarTurnoCombinacion($detalle);
+            $resultado['horas_muertas'] = calcularHorasMuertas($detalle);
+            $resultado['profesores'] = extraerProfesoresCombinacion($detalle);
+            $resultado['hora_inicio'] = obtenerHoraInicioCombinacion($detalle);
+            $resultado['hora_fin'] = obtenerHoraFinCombinacion($detalle);
+        }
+    }
     
     return $resultados;
 }
