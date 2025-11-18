@@ -174,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $html .= '</tr>';
             }
+            //hola es una prueba, como estas?
 
             $html .= '</tbody></table>';
             return $html;
