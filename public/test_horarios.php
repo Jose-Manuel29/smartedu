@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Enviar datos al controlador
     // Ajustado: usar la ruta correcta dentro de este proyecto `smartedu`
-    $url = 'http://localhost/smartedu/private/controllers/generar_horarios.php';
+    $url = 'http://localhost/proyecto_ing/private/controllers/generar_horarios.php';
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -100,8 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Ordenar días (mantener orden lógico si vienen como L M W J V S D u otros)
-            // Nuevo orden preferido: Lunes, Martes (A), Miércoles (M), Jueves, Viernes, Sábado...
-            $preferred = ['L','A','M','J','V','S','D'];
+            $preferred = ['L','M','W','J','V','S','D','LU','MA','MI','JU','VI'];
             $days = array_keys($daysSet);
             usort($days, function($a,$b) use ($preferred){
                 $pa = array_search($a,$preferred); $pb = array_search($b,$preferred);
