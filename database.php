@@ -2,7 +2,7 @@
 header("Content-Type: text/plain; charset=utf-8");
 
 // Conexión a SQL Server
-$serverName = "BANGALTER\MSSQLSERVER1"; 
+$serverName = "localhost"; 
 $connectionOptions = [
     "Database" => "SMARTEDU",
     "Uid" => "",          
