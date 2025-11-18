@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Ordenar días
-            const preferred = ['L', 'M', 'W', 'J', 'V', 'S', 'D', 'LU', 'MA', 'MI', 'JU', 'VI'];
+            const preferred = ['L', 'A', 'M', 'W', 'J', 'V', 'S', 'D', 'LU', 'MA', 'MI', 'JU', 'VI'];
             let days = Object.keys(daysSet);
             days.sort((a, b) => {
                 const pa = preferred.indexOf(a);
