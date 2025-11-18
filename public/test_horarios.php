@@ -100,7 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Ordenar días (mantener orden lógico si vienen como L M W J V S D u otros)
-            $preferred = ['L','M','W','J','V','S','D','LU','MA','MI','JU','VI'];
+            // Nuevo orden preferido: Lunes, Martes (A), Miércoles (M), Jueves, Viernes, Sábado...
+            $preferred = ['L','A','M','J','V','S','D'];
             $days = array_keys($daysSet);
             usort($days, function($a,$b) use ($preferred){
                 $pa = array_search($a,$preferred); $pb = array_search($b,$preferred);
