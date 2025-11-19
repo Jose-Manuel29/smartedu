@@ -45,7 +45,7 @@ if (empty($materias_nombres)) {
 // En lugar de llamar al generador desde el servidor, redirigimos al usuario
 // a `public/filtros_finales.php` pasando las materias seleccionadas como parámetro GET.
 
-$target = '/proyecto_isi/public/filtros_finales.php';
+$target = '/PROYECTO_ISII/public/filtros_finales.php';
 $materias_param = urlencode(implode(',', $materias_nombres));
 ?>
 <!DOCTYPE html>

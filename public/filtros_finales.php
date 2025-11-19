@@ -40,7 +40,7 @@
                 <div id="materiasLista" class="d-flex flex-wrap gap-2">
                 </div>
                 <div class="mt-3">
-                    <a href="/proyecto_isi/filtro_materias.php" class="btn btn-sm btn-outline-primary">← Cambiar Materias</a>
+                    <a href="/PROYECTO_ISII/filtro_materias.php" class="btn btn-sm btn-outline-primary">← Cambiar Materias</a>
                 </div>
             </div>
         </div>
@@ -184,7 +184,7 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        const API_URL = 'http://localhost/proyecto_isi/private/controllers/generar_horarios.php';
+        const API_URL = 'http://localhost/PROYECTO_ISII/private/controllers/generar_horarios.php';
         let profesoresDisponibles = {};
         let profesoresPrioridad = [];
         let profesoresExcluir = [];
@@ -570,7 +570,7 @@
                     sessionStorage.setItem('combinacionesData', JSON.stringify(data));
                     
                     // Redirigir a test_horarios.php
-                    window.location.href = '/proyecto_isi/public/test_horarios.php';
+                    window.location.href = '/PROYECTO_ISII/public/test_horarios.php';
                 } else {
                     $('#resultadosContenido').html(`
                         <div class="alert alert-warning">

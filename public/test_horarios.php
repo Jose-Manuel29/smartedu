@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $materias = $_POST['materias'] ?? [];
 
     // Enviar datos al controlador
-    $url = 'http://localhost/proyecto_isi/private/controllers/generar_horarios.php';
+    $url = 'http://localhost/PROYECTO_ISII/private/controllers/generar_horarios.php';
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <h1>🧩 Prueba de combinaciones válidas</h1>
 
-    <?php if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['materias'])): ?>
+    <!--<?php if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['materias'])): ?>
     <form method="post">
         <p>Escribe entre 2 y 6 materias (deben existir en la tabla <b>horarios</b>):</p>
         <input type="text" name="materias[]" placeholder="Ej. Matemáticas I" required>
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="text" name="materias[]" placeholder="Opcional...">
         <button type="submit">Generar combinaciones</button>
     </form>
-    <?php endif; ?>
+    <?php endif; ?> -->
 
     <div id="resultadosDiv"></div>
 
