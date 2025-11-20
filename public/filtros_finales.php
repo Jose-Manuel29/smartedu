@@ -209,13 +209,37 @@
             if (materiasActuales.length > 0) {
                 $('#materiasCard').show();
                 materiasActuales.forEach(materia => {
-                    const badge = `<span class="badge bg-info text-dark" style="font-size: 1em; padding: 0.5em 0.75em;">${materia}</span>`;
+                    const badge = `
+                        <span class="badge bg-info text-dark d-inline-flex align-items-center gap-1" style="font-size: 1em; padding: 0.5em 0.75em;">
+                            ${materia}
+                            <button type="button" class="btn-close btn-close-white btn-close-sm" 
+                                    onclick="removerMateria('${materia}')" style="cursor: pointer; padding: 0;">
+                            </button>
+                        </span>
+                    `;
                     materiasLista.append(badge);
                 });
                 // Cargar estadísticas después de mostrar materias
                 cargarEstadisticas();
                 // Cargar profesores disponibles
                 cargarProfesoresPorMateria();
+            }
+        }
+
+        // Remover materia seleccionada y recalcular estadísticas
+        function removerMateria(materia) {
+            materiasActuales = materiasActuales.filter(m => m !== materia);
+            
+            if (materiasActuales.length === 0) {
+                // Si no hay materias, ocultar la tarjeta y mostrar botón para cambiar
+                $('#materiasCard').hide();
+                $('#estadisticasCard').hide();
+                profesoresDisponibles = {};
+                profesoresPrioridad = [];
+                profesoresExcluir = [];
+            } else {
+                // Actualizar la vista
+                mostrarMateriasSeleccionadas();
             }
         }
 
@@ -534,6 +558,45 @@
             }
         });
 
+        // Detectar materias incompatibles
+        async function detectarMateriasIncompatibles() {
+            try {
+                const payload = {
+                    materias: materiasActuales,
+                    action: 'get_stats'
+                };
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                
+                // Si hay 0 combinaciones, todas las materias son incompatibles entre sí
+                if (data.status === 'ok' && data.stats && data.stats.total_combinaciones === 0) {
+                    return materiasActuales;
+                }
+                
+                // Si hay combinaciones pero menos que el máximo teórico
+                if (data.status === 'ok' && data.stats) {
+                    // Obtener todas las combinaciones sin filtros para identificar cuáles faltan
+                    const totalTeórico = Math.pow(2, materiasActuales.length) - materiasActuales.length - 1;
+                    const combinacionesReales = data.stats.total_combinaciones;
+                    
+                    if (combinacionesReales === 0) {
+                        return materiasActuales;
+                    }
+                }
+                
+                return [];
+            } catch (error) {
+                console.error('Error detectando materias incompatibles:', error);
+                return [];
+            }
+        }
+
         $('#btnGenerar').on('click', async function() {
             if (materiasActuales.length < 2) {
                 alert('No se detectaron materias válidas. Por favor vuelve atrás y selecciona nuevamente.');
@@ -572,12 +635,33 @@
                     // Redirigir a test_horarios.php
                     window.location.href = '/PROYECTO_ISII/public/test_horarios.php';
                 } else {
-                    $('#resultadosContenido').html(`
-                        <div class="alert alert-warning">
-                            <strong>No se encontraron combinaciones válidas</strong><br>
+                    // Detectar materias incompatibles
+                    const materiasIncompatibles = await detectarMateriasIncompatibles();
+                    
+                    let mensajeAlerta = `
+                        <div class="alert alert-danger" role="alert">
+                            <strong>❌ No se encontraron combinaciones válidas</strong><br>
                             ${data.msg || 'Intenta con otras materias o ajusta los filtros'}
-                        </div>
-                    `);
+                    `;
+                    
+                    if (materiasIncompatibles.length > 0) {
+                        mensajeAlerta += `
+                            <hr style="border-color: rgba(255,255,255,0.3);">
+                            <strong>⚠️ Materias incompatibles:</strong><br>
+                            <p style="margin-bottom: 0; font-size: 0.95em;">
+                                Las siguientes materias tienen conflictos de horario y no pueden combinarse:
+                            </p>
+                            <div style="margin-top: 8px;">
+                                ${materiasIncompatibles.map(m => `<span class="badge bg-light text-danger" style="font-size: 0.9em; margin: 2px;">${m}</span>`).join('')}
+                            </div>
+                            <small style="display: block; margin-top: 10px; color: rgba(255,255,255,0.8);">
+                                Sugerencia: Intenta reemplazar una o más de estas materias con alternativas que enseñen otros profesores.
+                            </small>
+                        `;
+                    }
+                    
+                    mensajeAlerta += `</div>`;
+                    $('#resultadosContenido').html(mensajeAlerta);
                 }
             } catch (error) {
                 $('#loadingSpinner').hide();
