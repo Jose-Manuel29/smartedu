@@ -47,9 +47,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .alert { padding: 12px; margin: 15px 0; border-radius: 5px; }
         .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
         .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        
+        .horario-individual {
+        background-color: white;
+        padding: 10px; 
+        display: block;
+        
+        /* CERO márgenes para evitar empujar contenido a otra hoja */
+        margin: 0; 
+        border: none; /* Quitamos bordes externos si los hubiera */
+        
+        /* Evita partir la tabla */
+        page-break-inside: avoid;
+        break-inside: avoid;
+
+        /* Fuerza el salto al terminar */
+        page-break-after: always;
+    }
+
+    /* Importante: Al último le quitamos el salto para no dejar una hoja final vacía */
+    .horario-individual:last-child {
+        page-break-after: auto;
+    }
     </style>
 
-    <!-- Agregado: html2pdf (html2canvas + jsPDF BRIAN) -->
+    <!-- BRIAN) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
 <body>
@@ -88,25 +110,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return;
             }
 
-            // Botón para exportar todo en un solo PDF BRIAN
+     //BRIAN   
             let html = `<div style="margin-bottom:12px;"><button onclick="exportAllToPDF()" style="padding:8px 12px;">Exportar TODO a PDF</button></div>`;
 
-            html += `
-
-                <div class="alert alert-info">
-                    <strong>Filtros aplicados:</strong><br>
-                    Turno: ${data.filtros_aplicados?.turno || 'todos'} | 
-                    Profesor prioridad: ${data.filtros_aplicados?.profesor_prioridad || 'ninguno'} | 
-                    Profesor excluido: ${data.filtros_aplicados?.profesor_excluir || 'ninguno'} | 
-                    Ordenamiento: ${data.filtros_aplicados?.ordenamiento || 'horas muertas'}
-                </div>
-            `;
-//BRIAN
             data.combinaciones.forEach((comb, i) => {
                 const detalle = comb.detalle_horarios || {};
-                // cada combinación tiene un contenedor con id para exportar
                 html += `
-                    <div id="comb-${i}" style="background: #fff; padding: 12px; border-radius: 6px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                 <div id="comb-${i}" class="horario-individual" style="background: #fff; padding: 12px; border-radius: 6px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
                         <div style="display:flex;justify-content:space-between;align-items:center">
                           <h3 style="margin:0">Combinación #${i + 1}</h3>
                           <div>
@@ -274,12 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             return html;
         }
 //BRIAN
-        /*
- Reemplaza las funciones de exportación basadas en clonación por estas
- que simplemente ocultan los botones temporalmente en el DOM original,
- generan el PDF y luego restauran la visibilidad. Evita problemas de
- contenido vacío al mantener los estilos y recursos en el mismo nodo.
-*/
+
 
 function _hideButtonsTemp(container) {
     const buttons = Array.from(container.querySelectorAll('button'));
@@ -295,33 +300,63 @@ function _restoreButtons(backup) {
     });
 }
 
-function exportCombinationToPDF(i) {
-    const el = document.getElementById('comb-' + i);
-    if (!el) return alert('Elemento no encontrado para exportar.');
+function exportAllToPDF() {
+    const el = document.getElementById('resultadosDiv');
+    if (!el) return alert('No hay contenido para exportar.');
+    
     const backup = _hideButtonsTemp(el);
+    
     const opt = {
-        margin:       0.5,
-        filename:     `horario_${i+1}.pdf`,
+        // Márgenes mínimos para aprovechar todo el espacio
+        margin:       [0.2, 0.2], 
+        filename:     `horarios_todos.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, logging: false },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        html2canvas:  { 
+            scale: 2, 
+            logging: false, 
+            scrollY: 0,
+            windowWidth: 800 // Ayuda a estabilizar el renderizado
+        },
+        
+        // --- AQUÍ ESTÁ LA SOLUCIÓN ---
+        // Usamos un formato personalizado: [Ancho, Alto]
+        // [8.5, 16] es suficientemente alto para que NINGUNA tabla se desborde.
+        jsPDF:        { unit: 'in', format: [8.5, 16], orientation: 'portrait' },
+        
+        // Mantenemos el modo CSS para que respete el 'page-break-after'
+        pagebreak:    { mode: ['css', 'legacy'] } 
     };
+
     html2pdf().set(opt).from(el).save()
         .then(() => _restoreButtons(backup))
         .catch(() => _restoreButtons(backup));
 }
 
-function exportAllToPDF() {
-    const el = document.getElementById('resultadosDiv');
-    if (!el) return alert('No hay contenido para exportar.');
+function exportCombinationToPDF(i) {
+    const el = document.getElementById('comb-' + i);
+    if (!el) return alert('Elemento no encontrado.');
+    
     const backup = _hideButtonsTemp(el);
+    
+
     const opt = {
-        margin:       0.4,
-        filename:     `horarios_todos.pdf`,
-        image:        { type: 'jpeg', quality: 0.95 },
-        html2canvas:  { scale: 2, logging: false },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        margin:       [0.2, 0.2], 
+        filename:     `horario_${i+1}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+            scale: 2,           
+            logging: false,
+            useCORS: true,      
+            scrollY: 0          
+        },
+        jsPDF:        { 
+            unit: 'in', 
+            format: [8.5, 18],  
+            orientation: 'portrait' 
+        },
+        pagebreak:    { mode: [] } 
     };
+
     html2pdf().set(opt).from(el).save()
         .then(() => _restoreButtons(backup))
         .catch(() => _restoreButtons(backup));

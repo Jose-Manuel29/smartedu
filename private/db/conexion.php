@@ -1,5 +1,5 @@
 <?php
-$serverName = "localhost"; 
+$serverName = "BANGALTER\MSSQLSERVER1"; 
 $connectionOptions = [
     "Database" => "SMARTEDU",
     "Uid" => "",
