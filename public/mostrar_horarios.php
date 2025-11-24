@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../private/db/database.php';
+include 'conexion.php';
 
 $conditions = [];
 $params = [];

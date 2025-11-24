@@ -40,7 +40,7 @@
                 <div id="materiasLista" class="d-flex flex-wrap gap-2">
                 </div>
                 <div class="mt-3">
-                    <a href="/PROYECTO_ISII/filtro_materias.php" class="btn btn-sm btn-outline-primary">← Cambiar Materias</a>
+                    <a href="/PROYECTO_ISII/public/filtro_materias.php" class="btn btn-sm btn-outline-primary">← Cambiar Materias</a>
                 </div>
             </div>
         </div>
@@ -679,7 +679,7 @@
             let html = `
                 <div class="alert alert-success">
                     <strong>✅ Se encontraron ${data.total_combinaciones_validas} combinaciones válidas</strong><br>
-                    Materias: ${data.materias_solicitadas.join(', ')}
+                    Materias: ${data.materias_solicitadas.join('s, ')}
                 </div>
                 <div class="alert alert-info" style="margin-bottom: 20px;">
                     <strong>Filtros aplicados:</strong><br>
