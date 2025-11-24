@@ -177,13 +177,13 @@ function validarCombinacionDetalle(array $combDetalle): bool {
     return true;
 }
 
-function generarCombinacionesValidas(PDO $pdo, array $nrcs_por_materia, array $por_nrc, ?callable $onValid = null): array {
+function generarCombinacionesValidas($db, array $nrcs_por_materia, array $por_nrc, ?callable $onValid = null): array {
     $materias = array_keys($nrcs_por_materia);
     $numMaterias = count($materias);
     $resultados = [];
     $seleccion = [];
 
-    $insertCb = function(array $seleccionActual) use (&$por_nrc, $pdo, $onValid, &$resultados) {
+    $insertCb = function(array $seleccionActual) use (&$por_nrc, $onValid, &$resultados) {
         $detalle = [];
         $materiasIncl = [];
         $nrcsIncl = [];

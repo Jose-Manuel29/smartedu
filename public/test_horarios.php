@@ -1,13 +1,19 @@
 <?php
+//brian
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Debug: marca que PHP ejecutó (aparecerá en el código fuente como comentario)
+echo "<!-- DEBUG: test_horarios.php cargado -->\n";
+//brian
 // test_horarios.php
 // Este archivo sirve para probar el generador de combinaciones desde el navegador
-
+// También recibe datos filtrados desde filtros_finales.php
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $materias = $_POST['materias'] ?? [];
 
     // Enviar datos al controlador
-    // Ajustado: el proyecto está en c:\xampp\htdocs\proyecto_ing, por lo que la ruta pública correcta
-    // no contiene la carpeta "smartedu". Usamos la URL absoluta a /proyecto_ing/private/...
     $url = 'http://localhost/PROYECTO_ISII/private/controllers/generar_horarios.php';
 
     $ch = curl_init($url);
@@ -38,12 +44,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         table { border-collapse: collapse; margin-top: 20px; width: 100%; background: white; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background: #ddd; }
+        .alert { padding: 12px; margin: 15px 0; border-radius: 5px; }
+        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        
+        .horario-individual {
+        background-color: white;
+        padding: 10px; 
+        display: block;
+        
+        /* CERO márgenes para evitar empujar contenido a otra hoja */
+        margin: 0; 
+        border: none; /* Quitamos bordes externos si los hubiera */
+        
+        /* Evita partir la tabla */
+        page-break-inside: avoid;
+        break-inside: avoid;
+
+        /* Fuerza el salto al terminar */
+        page-break-after: always;
+    }
+
+    /* Importante: Al último le quitamos el salto para no dejar una hoja final vacía */
+    .horario-individual:last-child {
+        page-break-after: auto;
+    }
     </style>
+
+    <!-- BRIAN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <h1>🧩 Prueba de combinaciones válidas</h1>
 
-    <?php if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['materias'])): ?>
+    <!--<?php if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['materias'])): ?>
     <form method="post">
         <p>Escribe entre 2 y 6 materias (deben existir en la tabla <b>horarios</b>):</p>
         <input type="text" name="materias[]" placeholder="Ej. Matemáticas I" required>
@@ -54,33 +88,287 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="text" name="materias[]" placeholder="Opcional...">
         <button type="submit">Generar combinaciones</button>
     </form>
-    <?php endif; ?>
+    <?php endif; ?> -->
 
-    <?php if (!empty($data)): ?>
-    <h2>Resultado</h2>
+    <div id="resultadosDiv"></div>
 
-    <?php if (isset($data['status']) && $data['status'] === 'ok'): ?>
-        <p><b>Materias:</b> <?= implode(', ', $data['materias_solicitadas']) ?></p>
-        <p><b>Total combinaciones válidas:</b> <?= $data['total_combinaciones_validas'] ?></p>
+    <script>
+        // Recuperar datos del sessionStorage (enviados desde filtros_finales.php)
+        const datosSessionStorage = sessionStorage.getItem('combinacionesData');
+        let data = null;
 
-        <table>
-            <tr><th>#</th><th>NRCs incluidos</th></tr>
-            <?php foreach ($data['combinaciones'] as $i => $comb): ?>
-                <tr>
-                    <td><?= $i + 1 ?></td>
-                    <td><?= implode(', ', $comb['nrcs_incluidos']) ?></td>
-                </tr>
-            <?php endforeach; ?>
-        </table>
+        if (datosSessionStorage) {
+            data = JSON.parse(datosSessionStorage);
+            sessionStorage.removeItem('combinacionesData'); // Limpiar después de usar
+            mostrarResultadosDelFiltro(data);
+        }
 
-    <?php else: ?>
-        <pre><?= htmlspecialchars(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
-    <?php endif; ?>
+        function mostrarResultadosDelFiltro(data) {
+            const div = document.getElementById('resultadosDiv');
+            if (!data || data.status !== 'ok' || !data.combinaciones) {
+                div.innerHTML = '<div class="alert alert-info">No hay datos disponibles.</div>';
+                return;
+            }
 
-<?php else: ?>
-    <p>No se recibió respuesta del servidor.</p>
-<?php endif; ?>
+     //BRIAN   
+            let html = `<div style="margin-bottom:12px;"><button onclick="exportAllToPDF()" style="padding:8px 12px;">Exportar TODO a PDF</button></div>`;
 
+            data.combinaciones.forEach((comb, i) => {
+                const detalle = comb.detalle_horarios || {};
+                html += `
+                 <div id="comb-${i}" class="horario-individual" style="background: #fff; padding: 12px; border-radius: 6px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                          <h3 style="margin:0">Combinación #${i + 1}</h3>
+                          <div>
+                            <button onclick="exportCombinationToPDF(${i})" style="padding:6px 10px;margin-left:8px;">Exportar PDF</button>
+                          </div>
+                        </div>
+                        <p style="margin:6px 0;"><strong>NRCs incluidos:</strong> ${comb.nrcs_incluidos.join(', ')}</p>
+                        <p style="margin:6px 0;"><strong>Profesores:</strong> ${(comb.profesores || []).join(', ')}</p>
+                        <p style="margin:6px 0;"><strong>Turno:</strong> ${comb.turno || 'mixto'} | <strong>Horas muertas:</strong> ${comb.horas_muertas || 0} hrs</p>
+                        ${renderTimetable(detalle)}
+                    </div>
+                `;
+            });
+
+            div.innerHTML = html;
+        }
+//BRIAN
+        function renderTimetable(detalle) {
+            if (typeof detalle === 'string') {
+                try {
+                    detalle = JSON.parse(detalle);
+                } catch (e) {
+                    return '<p><em>Sin registros válidos</em></p>';
+                }
+            }
+
+            const registros = [];
+            const daysSet = {};
+
+            Object.keys(detalle).forEach(nrc => {
+                const info = detalle[nrc];
+                const materia = info.materia || '';
+                const seccion = info.seccion || '';
+                const profesor = info.profesor || '';
+                const salon = info.salon || '';
+                const regs = info.registros || [];
+
+                regs.forEach(r => {
+                    const dia = (r.dia || '').toUpperCase().trim();
+                    const inicio = r.inicio || '';
+                    const fin = r.fin || '';
+                    if (!dia || !inicio || !fin) return;
+
+                    registros.push({ nrc, materia, seccion, profesor, salon, dia, inicio, fin });
+                    daysSet[dia] = true;
+                });
+            });
+
+            if (registros.length === 0) {
+                return '<p><em>Sin registros de horario</em></p>';
+            }
+
+            const preferred = ['L', 'A', 'M', 'W', 'J', 'V', 'S', 'D', 'LU', 'MA', 'MI', 'JU', 'VI'];
+            let days = Object.keys(daysSet);
+            days.sort((a, b) => {
+                const pa = preferred.indexOf(a);
+                const pb = preferred.indexOf(b);
+                return (pa === -1 ? 999 : pa) - (pb === -1 ? 999 : pb);
+            });
+
+            const toMinutes = s => {
+                const parts = (s || '').split(':').map(Number);
+                return parts.length === 2 ? parts[0] * 60 + parts[1] : NaN;
+            };
+            const pad = n => (n < 10 ? '0' + n : '' + n);
+
+            const timePoints = {};
+            registros.forEach(r => {
+                timePoints[r.inicio] = true;
+                timePoints[r.fin] = true;
+            });
+
+            let times = Object.keys(timePoints).sort((a, b) => toMinutes(a) - toMinutes(b));
+
+            const timesM = times.map(toMinutes);
+            const normalizedM = [];
+            for (let i = 0; i < timesM.length; i++) {
+                const t = timesM[i];
+                if (i === 0) {
+                    normalizedM.push(t);
+                    continue;
+                }
+                const prev = normalizedM[normalizedM.length - 1];
+                if (t - prev <= 1) {
+                    // colapsar puntos muy cercanos (<= 1 minuto) al previo
+                    continue;
+                }
+                normalizedM.push(t);
+            }
+
+            const normalizedTimes = normalizedM.map(m => pad(Math.floor(m / 60)) + ':' + pad(m % 60));
+
+            const intervals = [];
+            for (let i = 0; i < normalizedTimes.length - 1; i++) {
+                intervals.push({ start: normalizedTimes[i], end: normalizedTimes[i + 1] });
+            }
+
+            const dayIntervalMap = {};
+            const startsMap = {};
+
+            registros.forEach(r => {
+                const rStart = toMinutes(r.inicio);
+                const rEnd = toMinutes(r.fin);
+                const startIdx = normalizedM.findIndex(x => x >= rStart);
+                const endIdx = normalizedM.findIndex(x => x >= rEnd);
+                if (startIdx === -1 || endIdx === -1) return;
+
+                const span = Math.max(1, endIdx - startIdx);
+                const dia = r.dia;
+
+                if (!dayIntervalMap[dia]) dayIntervalMap[dia] = new Array(intervals.length).fill(null);
+                if (!startsMap[dia]) startsMap[dia] = {};
+
+                startsMap[dia][startIdx] = { span, data: r };
+
+                for (let k = startIdx; k < startIdx + span; k++) {
+                    dayIntervalMap[dia][k] = r;
+                }
+            });
+
+            let html = '<table style="border-collapse: collapse; margin-top: 16px; width: 100%;">';
+            html += '<thead><tr><th style="border: 1px solid #ccc; padding: 6px; width: 90px;">Hora</th>';
+
+            days.forEach(d => {
+                html += `<th style="border: 1px solid #ccc; padding: 6px;">${d}</th>`;
+            });
+
+            html += '</tr></thead><tbody>';
+
+            for (let i = 0; i < intervals.length; i++) {
+                const int = intervals[i];
+
+                let shouldRenderRow = false;
+                days.forEach(d => {
+                    if (startsMap[d] && startsMap[d][i]) shouldRenderRow = true;
+                });
+
+                if (!shouldRenderRow) {
+                    days.forEach(d => {
+                        if (!dayIntervalMap[d] || dayIntervalMap[d][i] === null) shouldRenderRow = true;
+                    });
+                }
+
+                if (!shouldRenderRow) continue;
+
+                html += `<tr>\n                    <td style="border: 1px solid #ccc; padding: 6px; font-size: 12px; background: #f9f9f9;">\n                        ${int.start} - ${int.end}\n                    </td>`;
+
+                days.forEach(d => {
+                    if (startsMap[d] && startsMap[d][i]) {
+                        const span = Math.max(1, startsMap[d][i].span);
+                        const r = startsMap[d][i].data;
+                        const content = `<div style="background: #e8f4ff; border-radius: 4px; padding: 4px; font-weight: 600;">\n                            ${r.nrc} - ${r.materia}\n                        </div>\n                        <div style="font-size: 12px; color: #444;">\n                            ${r.salon} · ${r.profesor}\n                        </div>`;
+                        html += `<td rowspan="${span}" style="border: 1px solid #ccc; padding: 6px; vertical-align: top;">\n                            ${content}\n                        </td>`;
+                    } else if (dayIntervalMap[d] && dayIntervalMap[d][i]) {
+                        // ocupada por rowspan
+                    } else {
+                        html += `<td style="border: 1px solid #ccc; padding: 6px;"></td>`;
+                    }
+                });
+
+                html += '</tr>';
+            }
+
+            html += '</tbody></table>';
+            return html;
+        }
+//BRIAN
+
+
+function _hideButtonsTemp(container) {
+    const buttons = Array.from(container.querySelectorAll('button'));
+    const backup = buttons.map(b => ({ el: b, display: b.style.display || '' }));
+    buttons.forEach(b => b.style.display = 'none');
+    return backup;
+}
+
+function _restoreButtons(backup) {
+    if (!Array.isArray(backup)) return;
+    backup.forEach(item => {
+        try { item.el.style.display = item.display; } catch (e) { /* ignore */ }
+    });
+}
+
+function exportAllToPDF() {
+    const el = document.getElementById('resultadosDiv');
+    if (!el) return alert('No hay contenido para exportar.');
+    
+    const backup = _hideButtonsTemp(el);
+    
+    const opt = {
+        // Márgenes mínimos para aprovechar todo el espacio
+        margin:       [0.2, 0.2], 
+        filename:     `horarios_todos.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+            scale: 2, 
+            logging: false, 
+            scrollY: 0,
+            windowWidth: 800 // Ayuda a estabilizar el renderizado
+        },
+        
+        // --- AQUÍ ESTÁ LA SOLUCIÓN ---
+        // Usamos un formato personalizado: [Ancho, Alto]
+        // [8.5, 16] es suficientemente alto para que NINGUNA tabla se desborde.
+        jsPDF:        { unit: 'in', format: [8.5, 16], orientation: 'portrait' },
+        
+        // Mantenemos el modo CSS para que respete el 'page-break-after'
+        pagebreak:    { mode: ['css', 'legacy'] } 
+    };
+
+    html2pdf().set(opt).from(el).save()
+        .then(() => _restoreButtons(backup))
+        .catch(() => _restoreButtons(backup));
+}
+
+function exportCombinationToPDF(i) {
+    const el = document.getElementById('comb-' + i);
+    if (!el) return alert('Elemento no encontrado.');
+    
+    const backup = _hideButtonsTemp(el);
+    
+
+    const opt = {
+        margin:       [0.2, 0.2], 
+        filename:     `horario_${i+1}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+            scale: 2,           
+            logging: false,
+            useCORS: true,      
+            scrollY: 0          
+        },
+        jsPDF:        { 
+            unit: 'in', 
+            format: [8.5, 18],  
+            orientation: 'portrait' 
+        },
+        pagebreak:    { mode: [] } 
+    };
+
+    html2pdf().set(opt).from(el).save()
+        .then(() => _restoreButtons(backup))
+        .catch(() => _restoreButtons(backup));
+}
+//BRIAN
+        // Si hay datos del POST tradicional, mostrarlos también
+        <?php if (!empty($data)): ?>
+            if (!datosSessionStorage) {
+                // Mostrar datos del POST
+                document.getElementById('resultadosDiv').innerHTML = '<div class="alert alert-info">Cargados desde formulario tradicional</div>';
+            }
+        <?php endif; ?>
+    </script>
 </body>
 </html>
-

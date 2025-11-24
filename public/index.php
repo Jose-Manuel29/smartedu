@@ -1,21 +1,30 @@
 <?php
-// Incluir la conexión a la base de datos
-include 'conexion.php'; 
+// Incluir la conexión a la base de datos (PDO)
+require_once __DIR__ . '/../private/db/database.php';
 
-// Obtenemos las opciones de materias para el select dinámico (similar a filtro_materias.php)
-$sql_materias = "SELECT DISTINCT m.nombre AS Materia FROM Materia m ORDER BY m.nombre ASC";
-$result_materias = @sqlsrv_query($conn, $sql_materias);
-
+$conn = get_db_connection();
 $options_materias = "";
-if ($result_materias !== false) {
-    while ($row = sqlsrv_fetch_array($result_materias, SQLSRV_FETCH_ASSOC)) {
-        $nombre = $row['Materia'];
-        // Mostrar únicamente el nombre de la materia como texto y value
-        $options_materias .= "<option value='" . htmlspecialchars($nombre, ENT_QUOTES) . "'>" . htmlspecialchars($nombre) . "</option>";
+if ($conn) {
+    try {
+        $sql_materias = "SELECT DISTINCT m.nombre AS Materia FROM Materia m ORDER BY m.nombre ASC";
+        $stmt = sqlsrv_query($conn, $sql_materias);
+        if ($stmt !== false) {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $nombre = $row['Materia'];
+                $options_materias .= "<option value='" . htmlspecialchars($nombre, ENT_QUOTES) . "'>" . htmlspecialchars($nombre) . "</option>";
+            }
+        } else {
+            error_log("[index.php] Error al ejecutar consulta materias: " . print_r(sqlsrv_errors(), true));
+            $options_materias = "<option value=''>-- Error al cargar materias --</option>";
+        }
+    } catch (Exception $e) {
+        error_log("[index.php] Excepción al obtener materias: " . $e->getMessage());
+        $options_materias = "<option value=''>-- Error al cargar materias --</option>";
     }
 } else {
-    $options_materias = "<option value=''>-- Error al cargar materias --</option>";
+    $options_materias = "<option value=''>-- Error: sin conexión a BD --</option>";
 }
+
 // Limpiamos las opciones para JS
 $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
 ?>
@@ -149,7 +158,7 @@ $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
             const session_id = generarUUID();
             
             // Envío de datos al servidor (database.php - Debe incluir la normalización)
-            const response = await fetch("database.php", {
+            const response = await fetch("enpoint.php", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ horarios, session_id }),
