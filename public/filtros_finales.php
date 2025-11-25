@@ -679,7 +679,7 @@
             let html = `
                 <div class="alert alert-success">
                     <strong>✅ Se encontraron ${data.total_combinaciones_validas} combinaciones válidas</strong><br>
-                    Materias: ${data.materias_solicitadas.join('s, ')}
+                    Materias: ${data.materias_solicitadas.join(', ')}
                 </div>
                 <div class="alert alert-info" style="margin-bottom: 20px;">
                     <strong>Filtros aplicados:</strong><br>

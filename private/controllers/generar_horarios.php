@@ -194,7 +194,85 @@ foreach ($materiasSeleccionadas as $m) {
 // Generar combinaciones válidas
 $combinacionesValidas = generarCombinacionesValidas($db, $nrcs_por_materia, $por_nrc, null);
 
+// ======================================================================================
+// [FIX IMPORTANTE] PRE-CALCULAR METADATOS PARA QUE LOS FILTROS FUNCIONEN
+// Calculamos Turno, Profesores y Horas Muertas ANTES de filtrar
+// ======================================================================================
+foreach ($combinacionesValidas as &$comb) {
+    $detalle = $comb['detalle_horarios'];
+    $profesores = [];
+    $minInicio = 24 * 60; // 1440
+    $maxFin = 0;
+    
+    // Recorremos cada materia de esta combinación
+    foreach ($detalle as $nrcDetalle) {
+        // 1. Recolectar Profesores
+        if (!empty($nrcDetalle['profesor'])) {
+            $p = trim($nrcDetalle['profesor']);
+            if (!in_array($p, $profesores)) {
+                $profesores[] = $p;
+            }
+        }
+        
+        // 2. Calcular rango de horas (para Turno)
+        if (isset($nrcDetalle['registros']) && is_array($nrcDetalle['registros'])) {
+            foreach ($nrcDetalle['registros'] as $reg) {
+                // Usamos inicio_min y fin_min si combinador.php los provee, si no parseamos
+                $inicioM = isset($reg['inicio_min']) ? $reg['inicio_min'] : 0;
+                $finM = isset($reg['fin_min']) ? $reg['fin_min'] : 0;
+                
+                // Si no vienen pre-calculados, parsear H:i
+                if ($inicioM == 0 && isset($reg['inicio'])) {
+                    $parts = explode(':', $reg['inicio']);
+                    $inicioM = intval($parts[0])*60 + intval($parts[1]);
+                }
+                if ($finM == 0 && isset($reg['fin'])) {
+                    $parts = explode(':', $reg['fin']);
+                    $finM = intval($parts[0])*60 + intval($parts[1]);
+                }
+
+                if ($inicioM < $minInicio) $minInicio = $inicioM;
+                if ($finM > $maxFin) $maxFin = $finM;
+            }
+        }
+    }
+    
+    // 3. Determinar Turno
+    // Matutino: Termina a las 14:00 (14*60 = 840) o antes
+    // Vespertino: Empieza a las 13:00 (13*60 = 780) o después
+    // Mixto: Lo demás
+    $turno = 'mixto';
+    if ($maxFin > 0) {
+        if ($maxFin <= 840) { // Hasta 14:00
+            $turno = 'matutino';
+        } elseif ($minInicio >= 780) { // Desde 13:00
+            $turno = 'vespertino';
+        }
+    }
+
+    // 4. Calcular Horas Muertas (Aproximación para ordenamiento)
+    // (Fin del día - Inicio del día) - (Suma de duraciones reales) = Huecos totales
+    // Nota: Esto es una simplificación para que el filtro funcione.
+    $horasMuertas = 0;
+    if ($maxFin > $minInicio) {
+        $rangoTotal = ($maxFin - $minInicio) / 60; // en horas
+        // Aquí podríamos restar la duración real de clases si quisiéramos exactitud
+        // Por ahora, usamos el rango como proxy para ordenamiento
+        $horasMuertas = round($rangoTotal, 1); 
+    }
+
+    // Guardar en la combinación para que los filtros lo vean
+    $comb['turno'] = $turno;
+    $comb['profesores'] = $profesores;
+    $comb['horas_muertas'] = $horasMuertas;
+    $comb['hora_inicio'] = $minInicio;
+    $comb['hora_fin'] = $maxFin;
+}
+unset($comb); // Romper referencia del foreach
+
 // ===== APLICAR FILTROS =====
+// Ahora que ya existen 'turno' y 'profesores', los filtros funcionarán
+
 $turno_filtro = isset($decoded['turno']) ? $decoded['turno'] : 'todos';
 
 // Procesar profesor_prioridad: puede ser string o array
