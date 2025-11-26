@@ -4,16 +4,10 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Debug: marca que PHP ejecutó (aparecerá en el código fuente como comentario)
 echo "<!-- DEBUG: test_horarios.php cargado -->\n";
-//brian
-// test_horarios.php
-// Este archivo sirve para probar el generador de combinaciones desde el navegador
-// También recibe datos filtrados desde filtros_finales.php
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $materias = $_POST['materias'] ?? [];
-
-    // Enviar datos al controlador
     $url = 'http://localhost/PROYECTO_ISII/private/controllers/generar_horarios.php';
 
     $ch = curl_init($url);
@@ -32,341 +26,357 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Prueba de combinaciones de horarios</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 30px; background: #f6f6f6; }
-        h1 { color: #333; }
-        form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); width: 400px; }
-        input[type="text"] { width: 90%; padding: 6px; margin-bottom: 10px; }
-        button { background: #0066cc; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0055a5; }
-        pre { background: #eee; padding: 10px; border-radius: 6px; overflow-x: auto; }
-        table { border-collapse: collapse; margin-top: 20px; width: 100%; background: white; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background: #ddd; }
-        .alert { padding: 12px; margin: 15px 0; border-radius: 5px; }
-        .alert-info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        
-        .horario-individual {
-        background-color: white;
-        padding: 10px; 
-        display: block;
-        
-        /* CERO márgenes para evitar empujar contenido a otra hoja */
-        margin: 0; 
-        border: none; /* Quitamos bordes externos si los hubiera */
-        
-        /* Evita partir la tabla */
-        page-break-inside: avoid;
-        break-inside: avoid;
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados - Combinaciones</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- TU HOJA DE ESTILOS -->
+    <link href="css/estilos.css" rel="stylesheet"> 
 
-        /* Fuerza el salto al terminar */
-        page-break-after: always;
-    }
-
-    /* Importante: Al último le quitamos el salto para no dejar una hoja final vacía */
-    .horario-individual:last-child {
-        page-break-after: auto;
-    }
-    </style>
-
-    <!-- BRIAN) -->
+    <!-- Librería PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+
+    <style>
+        /* Estilos de Tabla */
+        .horario-table th {
+            background-color: #f8f9fa;
+            color: #495057;
+            text-align: center;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            vertical-align: middle;
+        }
+        .horario-table td {
+            vertical-align: top;
+            font-size: 0.9rem;
+            height: 60px;
+        }
+        
+        /* Bloques de materia */
+        .materia-block {
+            border-left: 4px solid #0d6efd;
+            background-color: #e8f4ff;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        
+        /* Título blanco para fondo oscuro */
+        h1.main-title {
+            color: #ffffff;
+            font-weight: 700;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* =========================================
+           ESTILOS CRÍTICOS PARA EL PDF 
+           ========================================= */
+        
+        /* Elemento invisible que fuerza el salto de página */
+        .saltopagina {
+            display: block;
+            page-break-before: always !important; /* Fuerza inicio en hoja nueva */
+            height: 1px;
+            margin: 0;
+            border: none;
+            visibility: hidden;
+            clear: both;
+        }
+
+        /* Modo PDF: Limpia el diseño para impresión */
+        .pdf-mode {
+            background-color: #ffffff !important;
+            background-image: none !important;
+            color: #000000 !important;
+            padding: 20px !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+        }
+        
+        .pdf-mode .card {
+            box-shadow: none !important;
+            border: 1px solid #ccc !important;
+            margin-bottom: 0 !important;
+            page-break-inside: avoid !important; /* Evita que la tabla se parta */
+        }
+
+        /* Ocultar elementos innecesarios en el PDF global */
+        .pdf-mode .main-title, 
+        .pdf-mode .text-muted,
+        .pdf-mode #btnExportarGlobal {
+            display: none !important;
+        }
+        
+        #contenido-a-exportar {
+            display: block !important;
+        }
+    </style>
 </head>
-<body>
-    <h1>🧩 Prueba de combinaciones válidas</h1>
+<body> 
+    
+    <div class="container main-container py-5" id="mainContainer">
+        
+        <!-- Header -->
+        <div class="text-center mb-5" id="headerSection">
+            <h1 class="main-title"><i class="fas fa-calendar-alt me-3"></i>Resultados de Horarios</h1>
+            <p class="text-muted" style="color: #cbd5e1 !important;">Explora y descarga tus combinaciones ideales</p>
+        </div>
 
-    <!--<?php if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['materias'])): ?>
-    <form method="post">
-        <p>Escribe entre 2 y 6 materias (deben existir en la tabla <b>horarios</b>):</p>
-        <input type="text" name="materias[]" placeholder="Ej. Matemáticas I" required>
-        <input type="text" name="materias[]" placeholder="Ej. Física I" required>
-        <input type="text" name="materias[]" placeholder="Ej. Programación I">
-        <input type="text" name="materias[]" placeholder="Opcional...">
-        <input type="text" name="materias[]" placeholder="Opcional...">
-        <input type="text" name="materias[]" placeholder="Opcional...">
-        <button type="submit">Generar combinaciones</button>
-    </form>
-    <?php endif; ?> -->
+        <!-- Contenedor de Resultados -->
+        <div id="resultadosDiv">
+            <div class="text-center text-white">
+                <div class="spinner-border text-light" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Esperando datos...</p>
+            </div>
+        </div>
 
-    <div id="resultadosDiv"></div>
+    </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        // Recuperar datos del sessionStorage (enviados desde filtros_finales.php)
         const datosSessionStorage = sessionStorage.getItem('combinacionesData');
         let data = null;
 
         if (datosSessionStorage) {
             data = JSON.parse(datosSessionStorage);
-            sessionStorage.removeItem('combinacionesData'); // Limpiar después de usar
             mostrarResultadosDelFiltro(data);
+        } else {
+             document.getElementById('resultadosDiv').innerHTML = `
+                <div class="alert alert-warning text-center shadow-sm border-0 rounded-4 p-4">
+                    <h4 class="alert-heading"><i class="fas fa-exclamation-circle me-2"></i>No hay datos</h4>
+                    <p>No se encontraron horarios para mostrar.</p>
+                    <a href="filtros_finales.php" class="btn btn-warning mt-2 fw-bold">Volver a filtros</a>
+                </div>`;
         }
 
         function mostrarResultadosDelFiltro(data) {
             const div = document.getElementById('resultadosDiv');
             if (!data || data.status !== 'ok' || !data.combinaciones) {
-                div.innerHTML = '<div class="alert alert-info">No hay datos disponibles.</div>';
+                div.innerHTML = '<div class="alert alert-info">No hay combinaciones disponibles.</div>';
                 return;
             }
 
-     //BRIAN   
-            let html = `<div style="margin-bottom:12px;"><button onclick="exportAllToPDF()" style="padding:8px 12px;">Exportar TODO a PDF</button></div>`;
+            // Botón Exportar TODO
+            let html = `
+                <div class="d-flex justify-content-end mb-4" id="btnExportarGlobal">
+                    <button onclick="exportAllToPDF()" class="btn btn-warning btn-custom-warning shadow-lg fw-bold px-4 rounded-pill">
+                        <i class="fas fa-file-pdf me-2"></i>Exportar TODO a PDF
+                    </button>
+                </div>
+                <!-- Contenedor Wrapper específico para el PDF -->
+                <div id="contenido-a-exportar">
+            `;
 
             data.combinaciones.forEach((comb, i) => {
                 const detalle = comb.detalle_horarios || {};
+                
+                // LÓGICA DE CORTE DE HOJA:
+                // Si NO es el primero (i > 0), insertamos el div de corte ANTES de la tarjeta.
+                if (i > 0) {
+                    html += '<div class="saltopagina"></div>';
+                }
+
+                // Tarjeta del Horario
                 html += `
-                 <div id="comb-${i}" class="horario-individual" style="background: #fff; padding: 12px; border-radius: 6px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
-                        <div style="display:flex;justify-content:space-between;align-items:center">
-                          <h3 style="margin:0">Combinación #${i + 1}</h3>
-                          <div>
-                            <button onclick="exportCombinationToPDF(${i})" style="padding:6px 10px;margin-left:8px;">Exportar PDF</button>
-                          </div>
+                    <div id="comb-${i}" class="card custom-card mb-4 border-0 shadow-sm horario-card">
+                        <div class="card-header bg-transparent border-bottom-0 pt-4 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <h4 class="text-primary fw-bold m-0"><i class="fas fa-layer-group me-2"></i>Opción ${i + 1}</h4>
+                            </div>
+                            <div class="btn-individual">
+                                <button onclick="exportCombinationToPDF(${i})" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
+                                    <i class="fas fa-download me-1"></i> PDF Individual
+                                </button>
+                            </div>
                         </div>
-                        <p style="margin:6px 0;"><strong>NRCs incluidos:</strong> ${comb.nrcs_incluidos.join(', ')}</p>
-                        <p style="margin:6px 0;"><strong>Profesores:</strong> ${(comb.profesores || []).join(', ')}</p>
-                        <p style="margin:6px 0;"><strong>Turno:</strong> ${comb.turno || 'mixto'} | <strong>Horas muertas:</strong> ${comb.horas_muertas || 0} hrs</p>
-                        ${renderTimetable(detalle)}
+                        
+                        <div class="card-body p-4 pt-2">
+                            <!-- Resumen -->
+                            <div class="mb-3 p-3 bg-light rounded-3 border">
+                                <div class="mb-2">
+                                    <span class="badge bg-primary me-2">NRCs</span> 
+                                    <span class="text-secondary small fw-bold">${comb.nrcs_incluidos.join(', ')}</span>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="badge bg-info text-dark me-2">Profesores</span>
+                                    <span class="text-secondary small">${(comb.profesores || []).join(', ')}</span>
+                                </div>
+                                <div>
+                                    <span class="badge bg-secondary me-2">Detalles</span>
+                                    <span class="fw-bold text-dark small">Turno: ${comb.turno || 'mixto'}</span> 
+                                    <span class="mx-2 text-muted">|</span>
+                                    <span class="fw-bold text-danger small">Horas Muertas: ${comb.horas_muertas || 0} hrs</span>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                ${renderTimetable(detalle)}
+                            </div>
+                        </div>
                     </div>
                 `;
             });
 
+            html += '</div>'; // Cierre contenido-a-exportar
             div.innerHTML = html;
         }
-//BRIAN
+
         function renderTimetable(detalle) {
             if (typeof detalle === 'string') {
-                try {
-                    detalle = JSON.parse(detalle);
-                } catch (e) {
-                    return '<p><em>Sin registros válidos</em></p>';
-                }
+                try { detalle = JSON.parse(detalle); } catch (e) { return '<p>Error datos</p>'; }
             }
-
             const registros = [];
             const daysSet = {};
-
             Object.keys(detalle).forEach(nrc => {
                 const info = detalle[nrc];
-                const materia = info.materia || '';
-                const seccion = info.seccion || '';
-                const profesor = info.profesor || '';
-                const salon = info.salon || '';
-                const regs = info.registros || [];
-
-                regs.forEach(r => {
+                (info.registros || []).forEach(r => {
                     const dia = (r.dia || '').toUpperCase().trim();
-                    const inicio = r.inicio || '';
-                    const fin = r.fin || '';
-                    if (!dia || !inicio || !fin) return;
-
-                    registros.push({ nrc, materia, seccion, profesor, salon, dia, inicio, fin });
+                    if (!dia) return;
+                    registros.push({ nrc, materia: info.materia, profesor: info.profesor, salon: info.salon, dia, inicio: r.inicio, fin: r.fin });
                     daysSet[dia] = true;
                 });
             });
 
-            if (registros.length === 0) {
-                return '<p><em>Sin registros de horario</em></p>';
-            }
+            if (registros.length === 0) return '<p class="text-muted">Sin registros</p>';
 
-            const preferred = ['L', 'A', 'M', 'W', 'J', 'V', 'S', 'D', 'LU', 'MA', 'MI', 'JU', 'VI'];
-            let days = Object.keys(daysSet);
-            days.sort((a, b) => {
-                const pa = preferred.indexOf(a);
-                const pb = preferred.indexOf(b);
-                return (pa === -1 ? 999 : pa) - (pb === -1 ? 999 : pb);
+            const preferred = ['L', 'A', 'M', 'W', 'J', 'V', 'S', 'D'];
+            let days = Object.keys(daysSet).sort((a, b) => {
+                return (preferred.indexOf(a) === -1 ? 999 : preferred.indexOf(a)) - (preferred.indexOf(b) === -1 ? 999 : preferred.indexOf(b));
             });
 
-            const toMinutes = s => {
-                const parts = (s || '').split(':').map(Number);
-                return parts.length === 2 ? parts[0] * 60 + parts[1] : NaN;
-            };
-            const pad = n => (n < 10 ? '0' + n : '' + n);
-
+            const toMinutes = s => { const p = s.split(':').map(Number); return p[0]*60 + p[1]; };
+            const pad = n => (n<10?'0':'')+n;
             const timePoints = {};
-            registros.forEach(r => {
-                timePoints[r.inicio] = true;
-                timePoints[r.fin] = true;
-            });
-
-            let times = Object.keys(timePoints).sort((a, b) => toMinutes(a) - toMinutes(b));
-
-            const timesM = times.map(toMinutes);
-            const normalizedM = [];
-            for (let i = 0; i < timesM.length; i++) {
-                const t = timesM[i];
-                if (i === 0) {
-                    normalizedM.push(t);
-                    continue;
-                }
-                const prev = normalizedM[normalizedM.length - 1];
-                if (t - prev <= 1) {
-                    // colapsar puntos muy cercanos (<= 1 minuto) al previo
-                    continue;
-                }
-                normalizedM.push(t);
-            }
-
-            const normalizedTimes = normalizedM.map(m => pad(Math.floor(m / 60)) + ':' + pad(m % 60));
-
+            registros.forEach(r => { timePoints[r.inicio]=true; timePoints[r.fin]=true; });
+            let times = Object.keys(timePoints).map(toMinutes).sort((a,b)=>a-b);
+            
             const intervals = [];
-            for (let i = 0; i < normalizedTimes.length - 1; i++) {
-                intervals.push({ start: normalizedTimes[i], end: normalizedTimes[i + 1] });
+            for(let i=0; i<times.length-1; i++) {
+                if (times[i+1] - times[i] > 1) intervals.push({ start: times[i], end: times[i+1] });
             }
 
-            const dayIntervalMap = {};
-            const startsMap = {};
-
-            registros.forEach(r => {
-                const rStart = toMinutes(r.inicio);
-                const rEnd = toMinutes(r.fin);
-                const startIdx = normalizedM.findIndex(x => x >= rStart);
-                const endIdx = normalizedM.findIndex(x => x >= rEnd);
-                if (startIdx === -1 || endIdx === -1) return;
-
-                const span = Math.max(1, endIdx - startIdx);
-                const dia = r.dia;
-
-                if (!dayIntervalMap[dia]) dayIntervalMap[dia] = new Array(intervals.length).fill(null);
-                if (!startsMap[dia]) startsMap[dia] = {};
-
-                startsMap[dia][startIdx] = { span, data: r };
-
-                for (let k = startIdx; k < startIdx + span; k++) {
-                    dayIntervalMap[dia][k] = r;
-                }
-            });
-
-            let html = '<table style="border-collapse: collapse; margin-top: 16px; width: 100%;">';
-            html += '<thead><tr><th style="border: 1px solid #ccc; padding: 6px; width: 90px;">Hora</th>';
-
-            days.forEach(d => {
-                html += `<th style="border: 1px solid #ccc; padding: 6px;">${d}</th>`;
-            });
-
+            let html = '<table class="table table-bordered table-sm mt-3 horario-table shadow-sm">';
+            html += '<thead><tr><th style="width: 100px;">HORA</th>';
+            days.forEach(d => html += `<th>${d}</th>`);
             html += '</tr></thead><tbody>';
 
-            for (let i = 0; i < intervals.length; i++) {
-                const int = intervals[i];
-
-                let shouldRenderRow = false;
+            intervals.forEach(int => {
+                const startStr = pad(Math.floor(int.start/60))+':'+pad(int.start%60);
+                const endStr = pad(Math.floor(int.end/60))+':'+pad(int.end%60);
+                html += `<tr><td class="text-center fw-bold text-secondary bg-light" style="vertical-align: middle;">${startStr}<br><span class="small text-muted">a</span><br>${endStr}</td>`;
                 days.forEach(d => {
-                    if (startsMap[d] && startsMap[d][i]) shouldRenderRow = true;
-                });
-
-                if (!shouldRenderRow) {
-                    days.forEach(d => {
-                        if (!dayIntervalMap[d] || dayIntervalMap[d][i] === null) shouldRenderRow = true;
-                    });
-                }
-
-                if (!shouldRenderRow) continue;
-
-                html += `<tr>\n                    <td style="border: 1px solid #ccc; padding: 6px; font-size: 12px; background: #f9f9f9;">\n                        ${int.start} - ${int.end}\n                    </td>`;
-
-                days.forEach(d => {
-                    if (startsMap[d] && startsMap[d][i]) {
-                        const span = Math.max(1, startsMap[d][i].span);
-                        const r = startsMap[d][i].data;
-                        const content = `<div style="background: #e8f4ff; border-radius: 4px; padding: 4px; font-weight: 600;">\n                            ${r.nrc} - ${r.materia}\n                        </div>\n                        <div style="font-size: 12px; color: #444;">\n                            ${r.salon} · ${r.profesor}\n                        </div>`;
-                        html += `<td rowspan="${span}" style="border: 1px solid #ccc; padding: 6px; vertical-align: top;">\n                            ${content}\n                        </td>`;
-                    } else if (dayIntervalMap[d] && dayIntervalMap[d][i]) {
-                        // ocupada por rowspan
+                    const match = registros.find(r => r.dia === d && toMinutes(r.inicio) <= int.start && toMinutes(r.fin) >= int.end);
+                    if (match) {
+                        if (toMinutes(match.inicio) === int.start) {
+                            let span = 0;
+                            for(let k=0; k<intervals.length; k++) {
+                                if (intervals[k].start >= toMinutes(match.inicio) && intervals[k].end <= toMinutes(match.fin)) span++;
+                            }
+                            html += `<td rowspan="${span}" class="p-1">
+                                <div class="materia-block">
+                                    <div class="fw-bold text-primary small">${match.materia}</div>
+                                    <div class="small text-muted"><i class="fas fa-door-open me-1"></i>${match.salon}</div>
+                                    <div class="small text-dark"><i class="fas fa-chalkboard-teacher me-1"></i>${match.profesor}</div>
+                                    <div class="badge bg-white text-secondary border mt-1">${match.nrc}</div>
+                                </div>
+                            </td>`;
+                        }
                     } else {
-                        html += `<td style="border: 1px solid #ccc; padding: 6px;"></td>`;
+                        const isOccupied = registros.some(r => r.dia === d && toMinutes(r.inicio) < int.start && toMinutes(r.fin) > int.start);
+                        if (!isOccupied) html += '<td></td>';
                     }
                 });
-
                 html += '</tr>';
-            }
-
+            });
             html += '</tbody></table>';
             return html;
         }
-//BRIAN
 
+        // --- FUNCIONES DE EXPORTACIÓN ---
 
-function _hideButtonsTemp(container) {
-    const buttons = Array.from(container.querySelectorAll('button'));
-    const backup = buttons.map(b => ({ el: b, display: b.style.display || '' }));
-    buttons.forEach(b => b.style.display = 'none');
-    return backup;
-}
+        // Limpia el estilo visual para el PDF
+        function prepararVistaParaPDF(activo) {
+            const body = document.body;
+            const container = document.getElementById('mainContainer');
+            const header = document.getElementById('headerSection');
+            const btnGlobal = document.getElementById('btnExportarGlobal');
+            const btnsIndividuales = document.querySelectorAll('.btn-individual');
 
-function _restoreButtons(backup) {
-    if (!Array.isArray(backup)) return;
-    backup.forEach(item => {
-        try { item.el.style.display = item.display; } catch (e) { /* ignore */ }
-    });
-}
+            if (activo) {
+                body.classList.add('pdf-mode'); 
+                container.classList.add('pdf-mode');
+                if(header) header.style.display = 'none';
+                if(btnGlobal) btnGlobal.style.display = 'none';
+                btnsIndividuales.forEach(b => b.style.display = 'none');
+            } else {
+                body.classList.remove('pdf-mode');
+                container.classList.remove('pdf-mode');
+                if(header) header.style.display = 'block';
+                if(btnGlobal) btnGlobal.style.display = 'flex';
+                btnsIndividuales.forEach(b => b.style.display = 'block');
+            }
+        }
 
-function exportAllToPDF() {
-    const el = document.getElementById('resultadosDiv');
-    if (!el) return alert('No hay contenido para exportar.');
-    
-    const backup = _hideButtonsTemp(el);
-    
-    const opt = {
-        // Márgenes mínimos para aprovechar todo el espacio
-        margin:       [0.2, 0.2], 
-        filename:     `horarios_todos.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { 
-            scale: 2, 
-            logging: false, 
-            scrollY: 0,
-            windowWidth: 800 // Ayuda a estabilizar el renderizado
-        },
+        function exportAllToPDF() {
+            const element = document.getElementById('contenido-a-exportar');
+            if (!element) return;
+
+            prepararVistaParaPDF(true);
+
+            const opt = {
+                margin:       0.4,
+                filename:     'horarios_completos.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { 
+                    scale: 2, 
+                    useCORS: true, 
+                    logging: false,
+                    windowWidth: 1024 
+                },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+                // CONFIGURACIÓN CRÍTICA: Usar selector CSS para el corte
+                pagebreak:    { mode: ['css', 'legacy'], before: '.saltopagina' }
+            };
+
+            html2pdf().set(opt).from(element).save()
+                .then(() => { prepararVistaParaPDF(false); })
+                .catch(err => { console.error(err); prepararVistaParaPDF(false); });
+        }
+
+        function exportCombinationToPDF(i) {
+            const element = document.getElementById('comb-' + i);
+            if (!element) return;
+
+            const btnDiv = element.querySelector('.btn-individual');
+            if(btnDiv) btnDiv.style.display = 'none';
+
+            const opt = {
+                margin:       0.5,
+                filename:     `horario_opcion_${i+1}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save()
+                .then(() => { if(btnDiv) btnDiv.style.display = 'block'; })
+                .catch(() => { if(btnDiv) btnDiv.style.display = 'block'; });
+        }
         
-        // --- AQUÍ ESTÁ LA SOLUCIÓN ---
-        // Usamos un formato personalizado: [Ancho, Alto]
-        // [8.5, 16] es suficientemente alto para que NINGUNA tabla se desborde.
-        jsPDF:        { unit: 'in', format: [8.5, 16], orientation: 'portrait' },
-        
-        // Mantenemos el modo CSS para que respete el 'page-break-after'
-        pagebreak:    { mode: ['css', 'legacy'] } 
-    };
-
-    html2pdf().set(opt).from(el).save()
-        .then(() => _restoreButtons(backup))
-        .catch(() => _restoreButtons(backup));
-}
-
-function exportCombinationToPDF(i) {
-    const el = document.getElementById('comb-' + i);
-    if (!el) return alert('Elemento no encontrado.');
-    
-    const backup = _hideButtonsTemp(el);
-    
-
-    const opt = {
-        margin:       [0.2, 0.2], 
-        filename:     `horario_${i+1}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { 
-            scale: 2,           
-            logging: false,
-            useCORS: true,      
-            scrollY: 0          
-        },
-        jsPDF:        { 
-            unit: 'in', 
-            format: [8.5, 18],  
-            orientation: 'portrait' 
-        },
-        pagebreak:    { mode: [] } 
-    };
-
-    html2pdf().set(opt).from(el).save()
-        .then(() => _restoreButtons(backup))
-        .catch(() => _restoreButtons(backup));
-}
-//BRIAN
-        // Si hay datos del POST tradicional, mostrarlos también
         <?php if (!empty($data)): ?>
             if (!datosSessionStorage) {
-                // Mostrar datos del POST
-                document.getElementById('resultadosDiv').innerHTML = '<div class="alert alert-info">Cargados desde formulario tradicional</div>';
+                const dataPHP = <?php echo json_encode($data); ?>;
+                mostrarResultadosDelFiltro(dataPHP);
             }
         <?php endif; ?>
     </script>

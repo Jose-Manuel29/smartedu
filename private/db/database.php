@@ -2,7 +2,7 @@
 // Archivo: private/db/database.php
 // Provee conexión única usando ext/sqlsrv y helpers usados en el repo
 
-$serverName = "localhost";
+$serverName = "BANGALTER\MSSQLSERVER1";
 $connectionOptions = [
     "Database" => "SMARTEDU",
     "Uid" => "",

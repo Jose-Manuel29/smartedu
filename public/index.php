@@ -1,5 +1,6 @@
 <?php
 // Incluir la conexión a la base de datos (PDO)
+// Asegúrate de que la ruta sea correcta en tu servidor
 require_once __DIR__ . '/../private/db/database.php';
 
 $conn = get_db_connection();
@@ -32,47 +33,83 @@ $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SMARTEDU - Carga y Filtro</title>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/estilos.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-</head>
-<body class="bg-light">
 
-<div class="container mt-5">
-    <h3 class="text-center mb-4">SMARTEDU </h3>
+</head>
+<body class="py-5">
+
+<div class="container main-container">
     
-    <div id="seccionCarga" class="card p-4 shadow-lg rounded-4 mb-5">
-        <h4 class="mb-3">1. Subir PDF de Horarios</h4>
-        <div class="mb-3">
-            <input type="file" id="pdfInput" accept="application/pdf" class="form-control" />
-        </div>
-        <button id="guardar" class="btn btn-primary w-100">Cargar PDF </button>
-        <p id="mensajeCarga" class="mt-3 text-center"></p>
+    <div class="text-center mb-5">
+        <h1 class="app-title"><i class="fas fa-graduation-cap text-primary me-2"></i>SMARTEDU</h1>
+        <p class="text-muted">Sistema Inteligente de Gestión de Horarios</p>
     </div>
     
-    <hr class="my-5">
-
-    <div id="seccionFiltro" class="card p-4 shadow-lg rounded-4" style="display:none;">
-        <h4 class="mb-3">2. Selección de Materias (por Nombre)</h4>
-        <form id="formMaterias" method="POST" action="guardar_materias.php">
-
-            <div class="mb-4">
-                <label class="form-label">Número de materias que deseas agregar:</label>
-                <select id="numMaterias" class="form-select" name="numMaterias" required>
-                    <option value="">-- Selecciona cantidad --</option>
-                    <?php 
-                    for ($i = 1; $i <= 6; $i++) {
-                        echo "<option value='{$i}'>{$i}</option>";
-                    }
-                    ?>
-                </select>
+    <div id="seccionCarga" class="card custom-card mb-4">
+        <div class="card-body p-4">
+            <h5 class="card-title mb-4 d-flex align-items-center">
+                <span class="step-badge">1</span> Subir PDF de Horarios
+            </h5>
+            
+            <div class="mb-3">
+                <label for="pdfInput" class="form-label text-muted small fw-bold">Seleccionar archivo PDF</label>
+                <div class="input-group">
+                    <input type="file" id="pdfInput" accept="application/pdf" class="form-control" />
+                    <button id="guardar" class="btn btn-primary btn-custom-primary" type="button">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>Cargar PDF
+                    </button>
+                </div>
             </div>
+            
+            <div id="mensajeCargaContainer" class="mt-3" style="display:none;">
+                 <div id="mensajeCargaAlert" class="alert d-flex align-items-center rounded-3" role="alert">
+                    <i id="mensajeIcono" class="fas fa-info-circle me-2"></i>
+                    <div id="mensajeTexto"></div>
+                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="seccionFiltro" class="card custom-card" style="display:none;">
+        <div class="card-body p-4">
+            <h5 class="card-title mb-4 d-flex align-items-center">
+                <span class="step-badge">2</span> Selección de Materias
+            </h5>
+            
+            <form id="formMaterias" method="POST" action="guardar_materias.php">
 
-            <div id="contenedorMaterias"></div>
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-secondary">Número de materias que deseas agregar:</label>
+                    <select id="numMaterias" class="form-select" name="numMaterias" required>
+                        <option value="">-- Selecciona cantidad --</option>
+                        <?php 
+                        for ($i = 1; $i <= 6; $i++) {
+                            echo "<option value='{$i}'>{$i}</option>";
+                        }
+                        ?>
+                    </select>
+                </div>
 
-            <button type="submit" class="btn btn-success w-100 mt-4">Generar Horario</button>
-        </form>
+                <hr class="text-muted opacity-25 my-4">
+
+                <div id="contenedorMaterias" class="row g-3"></div>
+
+                <div class="d-grid gap-2 mt-5">
+                    <button type="submit" class="btn btn-success btn-custom-success btn-lg shadow-sm">
+                        <i class="fas fa-cogs me-2"></i>Generar Horario
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
 </div>
@@ -84,7 +121,7 @@ $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
     // Opciones de materia cargadas desde PHP
     const MATERIAS_OPTIONS_HTML = "<?= $js_options_materias ?>";
 
-    // Función para generar UUID (usada por el front-end)
+    // Función para generar UUID
     function generarUUID() {
         return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
             /[xy]/g,
@@ -96,21 +133,35 @@ $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
         );
     }
 
+    // Lógica de Carga de PDF
     document.getElementById("guardar").addEventListener("click", async () => {
-        const file = document.getElementById("pdfInput").files[0];
-        const mensajeCarga = document.getElementById("mensajeCarga");
+        const fileInput = document.getElementById("pdfInput");
+        const file = fileInput.files[0];
         
+        // Referencias para el feedback visual
+        const msgContainer = document.getElementById("mensajeCargaContainer");
+        const msgAlert = document.getElementById("mensajeCargaAlert");
+        const msgText = document.getElementById("mensajeTexto");
+        const msgIcon = document.getElementById("mensajeIcono");
+
+        // Función helper para mostrar mensajes
+        const mostrarMensaje = (tipo, texto) => {
+            msgContainer.style.display = 'block';
+            msgAlert.className = `alert alert-${tipo} d-flex align-items-center rounded-3`;
+            msgText.textContent = texto;
+            if(tipo === 'danger') msgIcon.className = "fas fa-exclamation-triangle me-2";
+            else if(tipo === 'success') msgIcon.className = "fas fa-check-circle me-2";
+            else msgIcon.className = "fas fa-spinner fa-spin me-2";
+        };
+
         if (!file) {
-            mensajeCarga.className = 'mt-3 text-danger text-center';
-            mensajeCarga.textContent = "Selecciona un PDF primero.";
+            mostrarMensaje('danger', "Por favor, selecciona un archivo PDF primero.");
             return;
         }
 
-        mensajeCarga.className = 'mt-3 text-info text-center';
-        mensajeCarga.textContent = "Procesando PDF, por favor espera...";
+        mostrarMensaje('info', "Procesando PDF, por favor espera...");
 
         try {
-            // ... (Lógica de extracción de texto y parseo de horarios - Igual que antes) ...
             const arrayBuffer = await file.arrayBuffer();
             const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
             let textoCompleto = "";
@@ -128,10 +179,9 @@ $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
                 .split(/(?=\d{5}\s[A-Z]{4,})/g)
                 .map((b) => b.trim())
                 .filter((b) => b.length > 0);
+            
             const horarios = [];
-
-            const regex =
-                /(\d{5})\s+([A-Z]{4,})\s+(\d{3})\s+([A-Za-zÁÉÍÓÚÜÑ.\s]+?)\s+(OO\d|[A-Z]{2}\d?)\s+([A-Z])\s+(\d{4})\s*-\s*(\d{4})\s+([A-ZÁÉÍÓÚÜÑ.\-\s]+?)\s+(\w+\/\d+)/;
+            const regex = /(\d{5})\s+([A-Z]{4,})\s+(\d{3})\s+([A-Za-zÁÉÍÓÚÜÑ.\s]+?)\s+(OO\d|[A-Z]{2}\d?)\s+([A-Z])\s+(\d{4})\s*-\s*(\d{4})\s+([A-ZÁÉÍÓÚÜÑ.\-\s]+?)\s+(\w+\/\d+)/;
 
             for (const bloque of bloques) {
                 const match = bloque.match(regex);
@@ -150,14 +200,13 @@ $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
             }
 
             if (horarios.length === 0) {
-                mensajeCarga.className = 'mt-3 text-danger text-center';
-                mensajeCarga.textContent = " No se detectaron registros válidos en el PDF.";
+                mostrarMensaje('danger', "No se detectaron registros válidos de horarios en el PDF.");
                 return;
             }
 
             const session_id = generarUUID();
             
-            // Envío de datos al servidor (database.php - Debe incluir la normalización)
+            // Envío al servidor
             const response = await fetch("enpoint.php", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -167,52 +216,54 @@ $js_options_materias = str_replace(["\n", "\r"], "", $options_materias);
             const resultText = await response.text();
             if (!response.ok) {
                 console.error("Error del servidor:", resultText);
-                mensajeCarga.className = 'mt-3 text-danger text-center';
-                mensajeCarga.textContent = " Error al guardar los datos: " + resultText;
+                mostrarMensaje('danger', "Error al guardar los datos en BD: " + resultText);
                 return;
             }
 
-            // Éxito:
-            mensajeCarga.className = 'mt-3 text-success text-center';
-            mensajeCarga.textContent = "Carga exitosa. Ahora selecciona tus materias.";
-
-            // 🔑 CAMBIO CLAVE: Solo mostramos la sección de filtro (no ocultamos la de carga)
-            document.getElementById('seccionFiltro').style.display = 'block';
-
-            // Opcional: Desplazarse hacia el formulario de filtro.
-            document.getElementById('seccionFiltro').scrollIntoView({ behavior: 'smooth' });
-
+            // ÉXITO
+            mostrarMensaje('success', "Carga exitosa. Ahora selecciona tus materias abajo.");
+            
+            // Mostrar la sección 2 con animación
+            const seccionFiltro = document.getElementById('seccionFiltro');
+            seccionFiltro.style.display = 'block';
+            seccionFiltro.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         } catch (error) {
             console.error("Error al procesar:", error);
-            mensajeCarga.className = 'mt-3 text-danger text-center';
-            mensajeCarga.textContent = " Error al guardar los datos.";
+            mostrarMensaje('danger', "Ocurrió un error inesperado al procesar el archivo.");
         }
     });
 
 
-    // Lógica de Selección de Materias (Igual que antes, usa jQuery)
+    // Lógica de Generación Dinámica de Inputs (Adaptada al nuevo diseño)
     $(document).ready(function(){
         $('#numMaterias').on('change', function(){
             let cantidad = $(this).val();
             let contenedor = $('#contenedorMaterias');
-            contenedor.empty(); // limpiar anteriores
+            contenedor.empty(); // Limpiar anteriores
 
             if(cantidad > 0){
                 for(let i = 1; i <= cantidad; i++){
-                    contenedor.append(`
-                        <div class="mb-3">
-                            <label class="form-label">Materia ${i}</label>
-                            <select name="materia_${i}" class="form-select" required>
-                                <option value="">-- Selecciona Materia --</option>
-                                ${MATERIAS_OPTIONS_HTML}
-                            </select>
+                    // Aquí usamos el HTML con estilo Bootstrap Input-Group e Icono
+                    let htmlTemplate = `
+                        <div class="col-12">
+                            <label class="form-label small text-muted text-uppercase fw-bold">Materia ${i}</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="fas fa-book text-muted"></i></span>
+                                <select name="materia_${i}" class="form-select border-start-0 ps-0" required>
+                                    <option value="">-- Selecciona Materia --</option>
+                                    ${MATERIAS_OPTIONS_HTML}
+                                </select>
+                            </div>
                         </div>
-                    `);
+                    `;
+                    contenedor.append(htmlTemplate);
                 }
             }
         });
     });
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
