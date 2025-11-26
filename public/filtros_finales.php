@@ -423,33 +423,35 @@
                 }
             });
         }
+$('#btnAplicarFiltros').on('click', async function() {
+    if (materiasActuales.length < 2) { alert('Selecciona al menos 2 materias.'); return; }
+    const turno = $('input[name="turno"]:checked').val();
+    const ordenamiento = $('#ordenamiento').val();
 
-        $('#btnAplicarFiltros').on('click', async function() {
-            if (materiasActuales.length < 2) { alert('Selecciona al menos 2 materias.'); return; }
-            const turno = $('input[name="turno"]:checked').val();
-            const ordenamiento = $('#ordenamiento').val();
+    try {
+        const payload = {
+            materias: materiasActuales, turno: turno, ordenamiento: ordenamiento,
+            profesor_prioridad: profesoresPrioridad.length > 0 ? profesoresPrioridad : null,
+            profesor_excluir: profesoresExcluir.length > 0 ? profesoresExcluir : null
+        };
+        const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await response.json();
 
-            try {
-                const payload = {
-                    materias: materiasActuales, turno: turno, ordenamiento: ordenamiento,
-                    profesor_prioridad: profesoresPrioridad.length > 0 ? profesoresPrioridad : null,
-                    profesor_excluir: profesoresExcluir.length > 0 ? profesoresExcluir : null
-                };
-                const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                const data = await response.json();
-
-                if (data.status === 'ok') {
-                    $('#totalCombinaciones').text(data.total_combinaciones_validas || 0);
-                    const alertDiv = $(`
-                        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
-                            <i class="fas fa-check-circle me-2"></i><strong>Filtros aplicados:</strong> ${data.total_combinaciones_validas} combinaciones encontradas.
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>`);
-                    $('#estadisticasCard').before(alertDiv);
-                    setTimeout(() => alertDiv.fadeOut(500, () => $(this).remove()), 4000);
-                } else { alert('Error: ' + (data.msg || 'Fallo al filtrar')); }
-            } catch (error) { alert('Error de conexión.'); }
-        });
+        if (data.status === 'ok') {
+            $('#totalCombinaciones').text(data.total_combinaciones_validas || 0);
+            const alertDiv = $(`
+                <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="fas fa-check-circle me-2"></i><strong>Filtros aplicados:</strong> ${data.total_combinaciones_validas} combinaciones encontradas.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`);
+            $('#estadisticasCard').before(alertDiv);
+            
+            // CORRECCIÓN AQUÍ: Usar 'alertDiv.remove()' en lugar de '$(this).remove()'
+            setTimeout(() => alertDiv.fadeOut(500, () => alertDiv.remove()), 4000);
+            
+        } else { alert('Error: ' + (data.msg || 'Fallo al filtrar')); }
+    } catch (error) { alert('Error de conexión.'); }
+});
 
         $('#btnGenerar').on('click', async function() {
             if (materiasActuales.length < 2) { alert('Selecciona materias primero.'); return; }

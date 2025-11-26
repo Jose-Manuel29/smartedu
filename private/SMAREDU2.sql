@@ -15,7 +15,7 @@ GO
 
 -- ============================================
 
-----se hixo ksksk KDNKDKDD pruebaASHOIDHASHFIAHFAÑEI
+----se hixo ksksk KDNKDKDD pruebaASHOIDHASHFIAHFAï¿½EI
 
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='horarios' AND xtype='U')
 BEGIN
@@ -28,7 +28,7 @@ BEGIN
         Hora NVARCHAR(20),
         Profesor NVARCHAR(100),
         Salon NVARCHAR(50),
-        session_id UNIQUEIDENTIFIER DEFAULT NEWID() -- ?? Identificador único por carga
+        session_id UNIQUEIDENTIFIER DEFAULT NEWID() -- ?? Identificador ï¿½nico por carga
     );
 END
 GO
@@ -78,7 +78,7 @@ BEGIN
     );
 END
 GO
--- 1?? Insertar materias únicas
+-- 1?? Insertar materias ï¿½nicas
 WITH cte_materia AS (
     SELECT Clave, Materia,
            ROW_NUMBER() OVER (PARTITION BY Clave ORDER BY Materia) AS rn
@@ -92,7 +92,7 @@ WHERE rn = 1
 PRINT '? Materias insertadas';
 GO
 
--- 2?? Insertar profesores únicos
+-- 2?? Insertar profesores ï¿½nicos
 WITH cte_prof AS (
     SELECT Profesor,
            ROW_NUMBER() OVER (PARTITION BY Profesor ORDER BY Profesor) AS rn
@@ -106,7 +106,7 @@ WHERE rn = 1
 PRINT '? Profesores insertados';
 GO
 
--- 3?? Insertar salones únicos
+-- 3?? Insertar salones ï¿½nicos
 WITH cte_salon AS (
     SELECT Salon,
            ROW_NUMBER() OVER (PARTITION BY Salon ORDER BY Salon) AS rn
@@ -161,3 +161,15 @@ DELETE FROM Profesor;
 DELETE FROM Salon;
 delete from horarios;
 GO
+
+GO
+
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SeleccionMateria' AND xtype='U')
+    BEGIN
+        CREATE TABLE SeleccionMateria (
+            id INT IDENTITY PRIMARY KEY,
+           -- session_id UNIQUEIDENTIFIER DEFAULT NEWID(),
+            NRC NVARCHAR(10),
+            fecha DATETIME DEFAULT GETDATE()    );
+    END
+    GO
